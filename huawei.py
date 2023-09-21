@@ -5,7 +5,7 @@ import time
 from selenium import webdriver
 from datetime import datetime
 
-from selenium.common import StaleElementReferenceException
+from selenium.common import StaleElementReferenceException, NoSuchElementException, TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -20,6 +20,9 @@ class HuaWei:
     isLogin = False
     isCountdown = True
     isStartBuying = False
+    nickname = "游客"
+    # 全局页面元素超时时间，单位S
+    defaultTimeout = 60
 
     def __init__(self, config_file):
         self.__config_parse(config_file)
@@ -37,14 +40,13 @@ class HuaWei:
 
     def stop_process(self):
         print("{0} 结束抢购华为 {1} 手机".format(datetime.now(), self.__config_get("product", "name")))
+        time.sleep(5)
         self.browser.quit()
 
     def __visit_official_website(self):
         print("{0} 开始进入华为官网".format(datetime.now()))
         self.browser.get('https://www.vmall.com/')
-        self.browser.implicitly_wait(20)
         print("{0} 已进入华为官网".format(datetime.now()))
-        time.sleep(0.01)
 
     def __visit_product_page(self):
         print("{0} 开始进入华为 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
@@ -52,55 +54,30 @@ class HuaWei:
         self.browser.refresh()
         self.browser.implicitly_wait(20)
         print("{0} 已进入华为 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
-        time.sleep(0.01)
 
     def __choose_product(self):
         print("{0} 开始选择手机规格".format(datetime.now()))
         sku_color = self.__config_get("product", "color")
         sku_version = self.__config_get("product", "version")
-        WebDriverWait(self.browser, 20).until(
+        WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))
         ).click()
-        WebDriverWait(self.browser, 20).until(
+        WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
         ).click()
-        # self.browser.find_element(By.LINK_TEXT, f"{sku_color}").click()
-        # self.browser.find_element(By.LINK_TEXT, f"{sku_version}").click()
         print("{0} 选择手机规格完成，颜色：{1} 版本：{2}".format(datetime.now(), sku_color, sku_version))
-        time.sleep(0.01)
 
     def __login(self):
         print("{0} 开始登陆华为账号".format(datetime.now()))
-        print("{0} 点击登录按钮".format(datetime.now()))
-        login = self.browser.find_element(By.CLASS_NAME, "css-901oao")
-        login.click()
-
-        self.browser.implicitly_wait(20)
-        print("{0} 已跳转登录页面".format(datetime.now()))
-
-        print("{0} 开始输入账号及密码".format(datetime.now()))
-        self.browser.find_elements(By.CLASS_NAME, "hwid-input")[0].send_keys(self.__config_get("user", "name"))
-        self.browser.find_elements(By.CLASS_NAME, "hwid-input")[1].send_keys(self.__config_get("user", "password"))
-        print("{0} 发起登陆请求".format(datetime.now()))
-        self.browser.find_element(By.CLASS_NAME, "hwid-login-btn").click()
+        self.__goto_login_page()
+        self.__submit_login()
+        self.__check_is_login()
 
         """ 
-            TODO：首次登陆浏览器不可信需要验证码登陆
+        TODO：实现cookie记录，并实现Cookie登陆
         """
-
-        self.browser.implicitly_wait(20)
-        time.sleep(10)
-
-        """ 
-            TODO：实现cookie记录
-        """
-
-        text = self.browser.find_element(By.CLASS_NAME, "css-901oao").text
-        self.isLogin = text == self.__config_get("user", "nickname")
         if self.isLogin:
-            print("{0} 账号：{1} 已登陆".format(datetime.now(), text))
-        else:
-            print("{0} 账号登陆失败，请重试".format(datetime.now()))
+            print("{0} 当前登陆账号为：{1}".format(datetime.now(), self.nickname))
 
         print("{0} 结束登陆华为账号".format(datetime.now()))
 
@@ -113,43 +90,45 @@ class HuaWei:
         print("{0} 设置浏览器参数完成".format(datetime.now()))
         browser.maximize_window()
         self.browser = browser
-        time.sleep(0.01)
 
     def __countdown(self):
         while self.isCountdown:
             countdown_times = self.__get_countdown_time()
-            print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), self.__format_countdown_time(countdown_times)))
-            self.__set_start_buying(countdown_times)
-            if not self.isStartBuying:
-                time.sleep(1)
+            if len(countdown_times) > 0:
+                print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), self.__format_countdown_time(countdown_times)))
+                self.__set_start_buying(countdown_times)
+                if not self.isStartBuying:
+                    time.sleep(1)
 
     def __start_buying(self):
         while self.isStartBuying:
             countdown_times = self.__get_countdown_time()
-            print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), self.__format_countdown_time(countdown_times)))
-            button_element = WebDriverWait(self.browser, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//div[@id='pro-operation']/a"))
-            )
-            button_element.click()
-            time.sleep(0.0001)
+            if len(countdown_times) > 0:
+                print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), self.__format_countdown_time(countdown_times)))
+                button_element = WebDriverWait(self.browser, self.defaultTimeout).until(
+                    EC.presence_of_element_located((By.XPATH, "//div[@id='pro-operation']/a"))
+                )
+                button_element.click()
+                time.sleep(0.0001)
 
     def __get_countdown_time(self):
         attempts = 0
-        while attempts < 2:
+        countdown_times = []
+        while attempts < 5:
             try:
-                elements = WebDriverWait(self.browser, 20).until(
+                elements = WebDriverWait(self.browser, self.defaultTimeout).until(
                     EC.presence_of_all_elements_located((By.XPATH, "//div[@id='pro-operation-countdown']/ul/li/span"))
                 )
-                countdown_times = []
                 for element in elements:
                     countdown_times.append(element.text)
                 return countdown_times
-            except StaleElementReferenceException:
+            except (StaleElementReferenceException, TimeoutException):
                 # 页面元素因为动态渲染，导致查找的元素不再是原来的元素，导致异常
                 self.browser.refresh()
                 self.browser.implicitly_wait(20)
                 self.__choose_product()
                 attempts += 1
+        return countdown_times
 
     def __config_get(self, group_name, item_name):
         return self.configparser.get(group_name, item_name)
@@ -177,3 +156,44 @@ class HuaWei:
         if int(countdown_times[3]) < 10:
             self.isCountdown = False
             self.isStartBuying = True
+
+    def __goto_login_page(self):
+        print("{0} 点击登录按钮".format(datetime.now()))
+        login = WebDriverWait(self.browser, self.defaultTimeout).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "r-1a7l8x0"))
+        )
+        login.click()
+        print("{0} 已跳转登录页面".format(datetime.now()))
+
+    def __submit_login(self):
+        """
+        TODO：首次登陆浏览器不可信需要验证码登陆
+        """
+        print("{0} 开始输入账号及密码".format(datetime.now()))
+        input_elements = WebDriverWait(self.browser, self.defaultTimeout).until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME, "hwid-input"))
+        )
+
+        input_elements[0].send_keys(self.__config_get("user", "name"))
+        input_elements[1].send_keys(self.__config_get("user", "password"))
+        print("{0} 已输入账号及密码".format(datetime.now()))
+
+        WebDriverWait(self.browser, self.defaultTimeout).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))
+        ).click()
+        print("{0} 发起登陆请求".format(datetime.now()))
+        self.browser.implicitly_wait(20)
+
+    def __check_is_login(self):
+        try:
+            self.browser.find_element(By.LINK_TEXT, "请登录")
+            self.isLogin = False
+            print("{0} 账号登陆失败，请重试".format(datetime.now()))
+        except NoSuchElementException:
+            self.isLogin = True
+            print("{0} 账号登陆成功".format(datetime.now()))
+            self.nickname = WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "r-1pn2ns4"))
+            ).text
+
+

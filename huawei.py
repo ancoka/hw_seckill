@@ -157,7 +157,7 @@ class HuaWei:
     def __config_parse(self, config_file):
         print("{0} 开始解析配置文件".format(datetime.now()))
         configparser = ConfigParser()
-        configparser.read(config_file)
+        configparser.read(config_file, "utf-8")
         self.configparser = configparser
         print("{0} 结束解析配置文件".format(datetime.now()))
         time.sleep(0.01)

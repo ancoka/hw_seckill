@@ -61,7 +61,7 @@
 
 (3)浏览器：`userDataDir`谷歌浏览器默认用户数据目录：
 - MacOS默认路径为：/Users/用户名/Library/Application Support/Google/Chrome/Default
-- Windows默认路径为：C:\Users\用户名\AppData\Local\Google\Chrome\User Data
+- Windows默认路径为：C:/Users/用户名/AppData/Local/Google/Chrome/User Data
 - Linux默认路径为：~/.config/google-chrome/Default
 
 

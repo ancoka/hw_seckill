@@ -66,7 +66,7 @@ class HuaWei:
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
         ).click()
-                WebDriverWait(self.browser, 20).until(
+        WebDriverWait(self.browser, 20).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
         ).click()
         print("{0} 选择手机规格完成，颜色：{1} 版本：{2} 付款方式：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))

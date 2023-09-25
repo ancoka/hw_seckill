@@ -91,6 +91,7 @@ class HuaWei:
         options = webdriver.ChromeOptions()
         options.add_argument(r"--user-data-dir={}".format(self.__config_get("chrome", "userDataDir")))
         options.add_argument(r"--profile-directory={}".format("Profile 5"))
+        options.add_argument('--ignore-certificate-errors')
         browser = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         print("{0} 设置浏览器参数完成".format(datetime.now()))
         browser.maximize_window()

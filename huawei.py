@@ -59,13 +59,18 @@ class HuaWei:
         print("{0} 开始选择手机规格".format(datetime.now()))
         sku_color = self.__config_get("product", "color")
         sku_version = self.__config_get("product", "version")
+        sku_payment = self.__config_get("product", "payment")
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))
         ).click()
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
         ).click()
-        print("{0} 选择手机规格完成，颜色：{1} 版本：{2}".format(datetime.now(), sku_color, sku_version))
+                WebDriverWait(self.browser, 20).until(
+            EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
+        ).click()
+        print("{0} 选择手机规格完成，颜色：{1} 版本：{2} 付款方式：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))
+        time.sleep(0.01)
 
     def __login(self):
         print("{0} 开始登陆华为账号".format(datetime.now()))

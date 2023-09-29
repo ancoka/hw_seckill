@@ -18,8 +18,10 @@ class HuaWei:
     browser = None
     configparser = None
     isLogin = False
+    isWaiting = True
     isCountdown = True
     isStartBuying = False
+    isBuyNow = False
     nickname = "游客"
     # 全局页面元素超时时间，单位S
     defaultTimeout = 60
@@ -35,12 +37,15 @@ class HuaWei:
         if self.isLogin:
             self.__visit_product_page()
             self.__choose_product()
+            self.__waiting_count()
             self.__countdown()
             self.__start_buying()
+            self.__buy_now()
+            self.__submit_order()
 
     def stop_process(self):
         print("{0} 结束抢购华为 {1} 手机".format(datetime.now(), self.__config_get("product", "name")))
-        time.sleep(5)
+        time.sleep(120)
         self.browser.quit()
 
     def __visit_official_website(self):
@@ -59,17 +64,23 @@ class HuaWei:
         print("{0} 开始选择手机规格".format(datetime.now()))
         sku_color = self.__config_get("product", "color")
         sku_version = self.__config_get("product", "version")
-        sku_payment = self.__config_get("product", "payment")
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))
         ).click()
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
         ).click()
-        WebDriverWait(self.browser, 20).until(
-            EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
-        ).click()
-        print("{0} 选择手机规格完成，颜色：{1} 版本：{2} 付款方式：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))
+
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl > label"), "销售类型")(self.browser):
+            sku_payment = self.__config_get("product", "payment")
+            WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
+            ).click()
+
+            print("{0} 选择手机规格完成，颜色：{1} 版本：{2} 销售类型：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))
+        else:
+            print("{0} 选择手机规格完成，颜色：{1} 版本：{2}".format(datetime.now(), sku_color, sku_version))
+            pass
         time.sleep(0.01)
 
     def __login(self):
@@ -117,10 +128,18 @@ class HuaWei:
                 button_element.click()
                 time.sleep(0.0001)
 
+    def __buy_now(self):
+        if self.isBuyNow:
+            button_element = WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#pro-operation > a"))
+            )[1]
+            button_element.click()
+
     def __get_countdown_time(self):
         attempts = 0
         countdown_times = []
         while attempts < 5:
+            countdown_times = []
             try:
                 elements = WebDriverWait(self.browser, self.defaultTimeout).until(
                     EC.presence_of_all_elements_located((By.XPATH, "//div[@id='pro-operation-countdown']/ul/li/span"))
@@ -202,4 +221,44 @@ class HuaWei:
                 EC.presence_of_element_located((By.CLASS_NAME, "r-1pn2ns4"))
             ).text
 
+    def __waiting_count(self):
+        while self.isWaiting:
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a > span"), "暂不售卖")(
+                    self.browser):
+                print("{0}【{1}】倒计时未开始，等待中...".format(datetime.now(), "暂不售卖"))
+                time.sleep(120)
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a > span"), "暂时缺货")(
+                    self.browser):
+                print("{0}【{1}】倒计时未开始，等待中...".format(datetime.now(), "暂时缺货"))
+                time.sleep(120)
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a > span"), "即将开始")(
+                    self.browser):
+                print("{0} 倒计时即将开始".format(datetime.now()))
+                self.__set_end_waiting()
+                if not self.isCountdown:
+                    time.sleep(1)
+            else:
+                print("{0} 当前可立即下单".format(datetime.now()))
+                self.__set_end_count_down()
+                self.__set_buy_now()
 
+    def __submit_order(self):
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):
+            try:
+                print("{0} 准备提交订单".format(datetime.now()))
+                self.browser.find_element(By.ID, "checkoutSubmit").click()
+                print("{0} 提交订单成功".format(datetime.now()))
+            except NoSuchElementException:
+                print("{0} 提交订单失败".format(datetime.now()))
+
+    def __set_end_waiting(self):
+        self.isWaiting = False
+        self.isCountdown = True
+
+    def __set_end_count_down(self):
+        self.isWaiting = False
+        self.isCountdown = False
+
+    def __set_buy_now(self):
+        self.isStartBuying = False
+        self.isBuyNow = True

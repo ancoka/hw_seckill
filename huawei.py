@@ -31,7 +31,7 @@ class HuaWei:
         self.__browser_setting()
 
     def start_process(self):
-        print("{0} 开启抢购华为 {1} 手机".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 开启抢购华为手机 {1}".format(datetime.now(), self.__config_get("product", "name")))
         self.__visit_official_website()
         self.__login()
         if self.isLogin:
@@ -44,7 +44,7 @@ class HuaWei:
             self.__submit_order()
 
     def stop_process(self):
-        print("{0} 结束抢购华为 {1} 手机".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 结束抢购华为手机 {1}".format(datetime.now(), self.__config_get("product", "name")))
         time.sleep(120)
         self.browser.quit()
 
@@ -61,7 +61,29 @@ class HuaWei:
         print("{0} 已进入华为 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
 
     def __choose_product(self):
-        print("{0} 开始选择手机规格".format(datetime.now()))
+        sets = self.__config_get("product", "sets")
+        if not sets.isspace() & len(sets) > 0:
+            self.__choose_product_sets(sets)
+        else:
+            self.__choose_product_item()
+
+    def __choose_product_sets(self, sets):
+        print("{0} 开始选择手机套装规格".format(datetime.now()))
+        set_skus = sets.split(",")
+        for sku in set_skus:
+            WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_element_located((By.LINK_TEXT, f"{sku}"))
+            ).click()
+        sku_payment = '无'
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(self.browser):
+            sku_payment = self.__config_get("product", "payment")
+            WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
+            ).click()
+        print("{0} 选择手机套装规格完成，套装规格：{1} 销售类型：{2}".format(datetime.now(), sets, sku_payment))
+
+    def __choose_product_item(self):
+        print("{0} 开始选择手机单品规格".format(datetime.now()))
         sku_color = self.__config_get("product", "color")
         sku_version = self.__config_get("product", "version")
         WebDriverWait(self.browser, self.defaultTimeout).until(
@@ -70,18 +92,13 @@ class HuaWei:
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
         ).click()
-
-        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl > label"), "销售类型")(self.browser):
+        sku_payment = '无'
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(self.browser):
             sku_payment = self.__config_get("product", "payment")
             WebDriverWait(self.browser, self.defaultTimeout).until(
                 EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
             ).click()
-
-            print("{0} 选择手机规格完成，颜色：{1} 版本：{2} 销售类型：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))
-        else:
-            print("{0} 选择手机规格完成，颜色：{1} 版本：{2}".format(datetime.now(), sku_color, sku_version))
-            pass
-        time.sleep(0.01)
+        print("{0} 选择手机单品规格完成，颜色：{1} 版本：{2} 销售类型：{3}".format(datetime.now(), sku_color, sku_version, sku_payment))
 
     def __login(self):
         print("{0} 开始登陆华为账号".format(datetime.now()))

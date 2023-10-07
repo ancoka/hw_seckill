@@ -11,13 +11,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from configparser import ConfigParser
+
+from config import Config
 from utils import format_countdown_time
 
 
 class HuaWei:
+    config = None
     browser = None
-    configparser = None
     isLogin = False
     isWaiting = True
     isCountdown = True
@@ -28,11 +29,13 @@ class HuaWei:
     defaultTimeout = 60
 
     def __init__(self, config_file):
-        self.__config_parse(config_file)
+        print("{0} 开始解析配置文件".format(datetime.now()))
+        self.config = Config(config_file)
+        print("{0} 结束解析配置文件".format(datetime.now()))
         self.__browser_setting()
 
     def start_process(self):
-        print("{0} 开启抢购华为手机 {1}".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 开启抢购华为手机 {1}".format(datetime.now(), self.config.get("product", "name")))
         self.__visit_official_website()
         self.__login()
         if self.isLogin:
@@ -45,7 +48,7 @@ class HuaWei:
             self.__submit_order()
 
     def stop_process(self):
-        print("{0} 结束抢购华为手机 {1}".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 结束抢购华为手机 {1}".format(datetime.now(), self.config.get("product", "name")))
         time.sleep(120)
         self.browser.quit()
 
@@ -55,19 +58,19 @@ class HuaWei:
         print("{0} 已进入华为官网".format(datetime.now()))
 
     def __visit_product_page(self):
-        print("{0} 开始进入华为 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
-        self.browser.get("https://www.vmall.com/product/{0}.html".format(self.__config_get("product", "id")))
-        print("{0} 已进入华为 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 开始进入华为 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
+        self.browser.get("https://www.vmall.com/product/{0}.html".format(self.config.get("product", "id")))
+        print("{0} 已进入华为 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
         self.__refresh_product_page()
 
     def __refresh_product_page(self):
-        print("{0} 开始刷新 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 开始刷新 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
         self.browser.refresh()
         self.browser.implicitly_wait(20)
-        print("{0} 结束刷新 {1} 产品详情页".format(datetime.now(), self.__config_get("product", "name")))
+        print("{0} 结束刷新 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
 
     def __choose_product(self):
-        sets = self.__config_get("product", "sets")
+        sets = self.config.get("product", "sets", "")
         if len(sets) > 0:
             self.__choose_product_sets(sets)
         else:
@@ -83,7 +86,7 @@ class HuaWei:
         sku_payment = '无'
         if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
                 self.browser):
-            sku_payment = self.__config_get("product", "payment")
+            sku_payment = self.config.get("product", "payment", "全款购买")
             WebDriverWait(self.browser, self.defaultTimeout).until(
                 EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
             ).click()
@@ -91,8 +94,8 @@ class HuaWei:
 
     def __choose_product_item(self):
         print("{0} 开始选择手机单品规格".format(datetime.now()))
-        sku_color = self.__config_get("product", "color")
-        sku_version = self.__config_get("product", "version")
+        sku_color = self.config.get("product", "color")
+        sku_version = self.config.get("product", "version")
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))
         ).click()
@@ -102,7 +105,7 @@ class HuaWei:
         sku_payment = '无'
         if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
                 self.browser):
-            sku_payment = self.__config_get("product", "payment")
+            sku_payment = self.config.get("product", "payment")
             WebDriverWait(self.browser, self.defaultTimeout).until(
                 EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
             ).click()
@@ -126,14 +129,23 @@ class HuaWei:
     def __browser_setting(self):
         print("{0} 开始设置浏览器参数".format(datetime.now()))
         options = webdriver.ChromeOptions()
-        options.add_argument(r"--user-data-dir={}".format(self.__config_get("chrome", "userDataDir")))
+        options.add_argument(r"--user-data-dir={}".format(self.config.get("chrome", "userDataDir")))
         options.add_argument(r"--profile-directory={}".format("Profile 5"))
+        if self.config.getboolean("chrome", "headless", False):
+            options.add_argument('--headless')
+            # headless 模式下需要设置user_agent及窗口大小，否则会被识别成移动端访问
+            options.add_argument(r"user-agent={}".format(self.config.get("chrome", "userAgent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")))
+            options.add_argument("--window-size=1920,1050")
+
         options.add_argument('--ignore-certificate-errors')
         options.add_argument('--ignore-certificate-errors-spki-list')
         options.add_argument('--ignore-ssl-errors')
         options.add_argument('--ignore-ssl-error')
         options.add_argument('--log-level=3')
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--no-sandbox')
         browser = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         print("{0} 设置浏览器参数完成".format(datetime.now()))
         browser.maximize_window()
@@ -185,17 +197,6 @@ class HuaWei:
                 attempts += 1
         return countdown_times
 
-    def __config_get(self, group_name, item_name):
-        return self.configparser.get(group_name, item_name)
-
-    def __config_parse(self, config_file):
-        print("{0} 开始解析配置文件".format(datetime.now()))
-        configparser = ConfigParser()
-        configparser.read(config_file, "utf-8")
-        self.configparser = configparser
-        print("{0} 结束解析配置文件".format(datetime.now()))
-        time.sleep(0.01)
-
     def __set_start_buying(self, countdown_times):
         if countdown_times[0] != "00" or countdown_times[1] != "00" or countdown_times[2] != "00":
             return
@@ -220,15 +221,15 @@ class HuaWei:
             EC.presence_of_all_elements_located((By.CLASS_NAME, "hwid-input"))
         )
 
-        input_elements[0].send_keys(self.__config_get("user", "name"))
-        input_elements[1].send_keys(self.__config_get("user", "password"))
+        input_elements[0].send_keys(self.config.get("user", "name"))
+        input_elements[1].send_keys(self.config.get("user", "password"))
         print("{0} 已输入账号及密码".format(datetime.now()))
 
         WebDriverWait(self.browser, self.defaultTimeout).until(
             EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))
         ).click()
         print("{0} 发起登陆请求".format(datetime.now()))
-        self.browser.implicitly_wait(20)
+        self.browser.implicitly_wait(10)
 
     def __check_is_login(self):
         try:

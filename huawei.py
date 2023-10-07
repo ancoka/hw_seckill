@@ -62,7 +62,7 @@ class HuaWei:
 
     def __choose_product(self):
         sets = self.__config_get("product", "sets")
-        if not sets.isspace() & len(sets) > 0:
+        if len(sets) > 0:
             self.__choose_product_sets(sets)
         else:
             self.__choose_product_item()

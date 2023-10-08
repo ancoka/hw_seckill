@@ -43,6 +43,7 @@
 
 - [Python下载](https://www.python.org/)
 - [ChromeDriver下载](https://sites.google.com/chromium.org/driver/downloads)
+- [GeckoDriver下载](https://github.com/mozilla/geckodriver/releases)
 
 ## 第三方库
 
@@ -51,8 +52,8 @@
 
 
 ## 使用教程  
-#### 1. Chrome浏览器
-#### 2. 填写config.ini配置信息 
+#### 1. Chrome | Firefox 浏览器
+#### 2. 填写 config.ini 配置信息 
 (1)账号信息：`name`、`password` 填写对应的华为账号、密码
 
 (2)商品信息：`name`、`id`、 `color`、`version`,`saleType`,`sets` 分别为对应的商品名称、商品ID、手机颜色（宣白）、手机版本（16GB+512GB）、销售类型、套装规格
@@ -67,11 +68,22 @@
 > 
 > `sets` 套装规格默认为空，当填写后程序将只抢购套装；需要填写套装对应的SKU信息，不同SKU信息之前采用“,”分割，如：“12GB+512GB 青山黛,木星棕 深棕色真皮表带,雅川青 无线充版”
 
-(3)浏览器：`userDataDir`谷歌浏览器默认用户数据目录：
+
+(3)浏览器：`type`、`driverPath`、 `headless`、 `userAgent` 分别对应浏览器类型、浏览器驱动绝对路径、是否开启无界面模式、userAgent：
+
+> `type` 默认为chrome，目前仅支持chrome、firefox，后续支持其他浏览器
+> 
+> `driverPath` 对应浏览器类型的驱动绝对路径，如果设置，则加载该路径的驱动，未设置需要将驱动加到环境变量
+> 
+> `headless` 是否开启无界面模式，默认为否，无界面模式需要设置userAgent
+> 
+> `userAgent` 需要填写对应浏览器的userAgent，如Chrome：Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+
+
+(4)谷歌浏览器特殊配置：`userDataDir`谷歌浏览器默认用户数据目录：
 - MacOS默认路径为：/Users/用户名/Library/Application Support/Google/Chrome/Default
 - Windows默认路径为：C:/Users/用户名/AppData/Local/Google/Chrome/User Data
 - Linux默认路径为：~/.config/google-chrome/Default
-
 
 以上都是必须的.
 

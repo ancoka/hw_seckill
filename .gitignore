@@ -19,4 +19,5 @@ html
 
 # MacOS
 .DS_Store
+*.log
 

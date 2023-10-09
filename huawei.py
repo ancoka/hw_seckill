@@ -118,6 +118,7 @@ class HuaWei:
         self.__goto_login_page()
         self.__submit_login()
         self.__login_security_verification()
+        self.__trust_browser()
         self.__check_is_logged_in()
 
         """ 
@@ -140,6 +141,12 @@ class HuaWei:
             self.__click_send_verification_code()
             while isNeedVerificationCode:
                 print("{0} 等待输入验证码中......".format(datetime.now()))
+                if self.config.getboolean("browser", "headless", False):
+                    verificationCode = input("请输入验证码：")
+                    verificationCode.strip()
+                    self.browser.find_element(By.CSS_SELECTOR,
+                                              ".hwid-getAuthCode-input .hwid-input-area .hwid-input").send_keys(
+                        verificationCode)
                 isInputVerificationCode = self.__check_is_input_verification_code()
                 if isInputVerificationCode:
                     verificationCode = self.browser.find_element(By.CSS_SELECTOR,
@@ -203,7 +210,7 @@ class HuaWei:
             userAgent = self.config.get("browser", "userAgent",
                                         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
             options.add_argument(r"user-agent={}".format(userAgent))
-            options.add_argument("--start-maximized")
+            options.add_argument("--window-size=1920,1080")
 
         options.add_argument('--ignore-certificate-errors')
         options.add_argument('--ignore-certificate-errors-spki-list')
@@ -277,10 +284,13 @@ class HuaWei:
 
     def __goto_login_page(self):
         print("{0} 点击登录按钮".format(datetime.now()))
-        login = WebDriverWait(self.browser, self.defaultTimeout).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "r-1a7l8x0"))
-        )
-        login.click()
+        login = self.__find_element_text(By.CLASS_NAME, "r-1a7l8x0", '请登录', True)
+        if login is not None:
+            login.click()
+        else:
+            print("{0} 登陆跳转失败，未找到登陆跳转链接".format(datetime.now()))
+            self.browser.quit()
+
         print("{0} 已跳转登录页面".format(datetime.now()))
 
     def __submit_login(self):
@@ -357,17 +367,41 @@ class HuaWei:
             print("{0} 短信验证码已发送超时".format(datetime.now()))
             pass
 
+    def __trust_browser(self):
+        print("{0} 检查是否已经输入验证码".format(datetime.now()))
+        isNeedTrustBrowser = False
+        try:
+            self.browser.find_element(By.CLASS_NAME, "hwid-trustBrowser")
+            isNeedTrustBrowser = True
+        except NoSuchElementException:
+            pass
+
+        if isNeedTrustBrowser:
+            self.browser.find_elements(By.CSS_SELECTOR, ".hwid-trustBrowser .hwid-dialog-textBtnBox .normalBtn")[
+                0].click()
+
     def __check_is_logged_in(self):
         try:
             self.browser.find_element(By.LINK_TEXT, "请登录")
-            self.isLogin = False
-            print("{0} 账号登陆失败，请重试".format(datetime.now()))
         except NoSuchElementException:
-            self.isLogin = True
+            try:
+                element = self.__find_element_text(By.CLASS_NAME, "r-1a7l8x0", "请登录")
+                self.isLogin = element is None
+            except NoSuchElementException:
+                self.isLogin = True
+
+        if self.isLogin:
             print("{0} 账号登陆成功".format(datetime.now()))
-            self.nickname = WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "r-1pn2ns4"))
-            ).text
+            try:
+                self.nickname = WebDriverWait(self.browser, self.defaultTimeout).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "r-1pn2ns4"))
+                ).text
+            except TimeoutException:
+                print("{0} 获取当前登陆账号昵称超时".format(datetime.now()))
+                pass
+        else:
+            print("{0} 账号登陆失败，请重试".format(datetime.now()))
+            pass
 
     def __waiting_count(self):
         while self.isWaiting:
@@ -412,3 +446,17 @@ class HuaWei:
     def __set_buy_now(self):
         self.isStartBuying = False
         self.isBuyNow = True
+
+    def __find_element_text(self, by, value, text, wait=None):
+        if wait is None:
+            items = self.browser.find_elements(by, value)
+        else:
+            items = WebDriverWait(self.browser, self.defaultTimeout).until(
+                EC.presence_of_all_elements_located((by, value)))
+        element = None
+        for item in items:
+            if text == item.text:
+                element = item
+        if element is None:
+            return
+        return element

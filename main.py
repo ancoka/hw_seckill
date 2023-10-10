@@ -6,7 +6,7 @@ from huawei import HuaWei
 
 
 def main():
-    huawei = HuaWei("config.ini")
+    huawei = HuaWei(os.path.abspath("./config.ini"))
     huawei.start_process()
     huawei.stop_process()
 

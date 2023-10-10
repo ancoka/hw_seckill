@@ -260,14 +260,18 @@ class HuaWei:
         while attempts < 5:
             countdown_times = []
             try:
-                elements = WebDriverWait(self.browser, self.defaultTimeout).until(
-                    EC.presence_of_all_elements_located((By.XPATH, "//div[@id='pro-operation-countdown']/ul/li/span"))
-                )
-                for element in elements:
-                    countdown_times.append(element.text)
+                elements = self.browser.find_elements(By.CSS_SELECTOR, "#pro-operation li > span")
+                element_length = len(elements)
+                for i in range(element_length):
+                    try:
+                        countdown_times.append(elements[i].text)
+                    except StaleElementReferenceException:
+                        # 页面元素因为动态渲染，导致查找的元素不再是原来的元素，导致异常
+                        element = self.browser.find_elements(By.CSS_SELECTOR, "#pro-operation li > span")[i]
+                        countdown_times.append(element.text)
+
                 return countdown_times
-            except (StaleElementReferenceException, TimeoutException):
-                # 页面元素因为动态渲染，导致查找的元素不再是原来的元素，导致异常
+            except (TimeoutException, NoSuchElementException):
                 self.__refresh_product_page()
                 self.__choose_product()
                 attempts += 1

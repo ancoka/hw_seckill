@@ -13,7 +13,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from config import Config
-from utils import format_countdown_time
+import utils
 
 
 class HuaWei:
@@ -23,6 +23,7 @@ class HuaWei:
     isWaiting = True
     isCountdown = True
     isStartBuying = False
+    startBuyingTime = None
     isBuyNow = False
     nickname = "游客"
     # 全局页面元素超时时间，单位S
@@ -55,7 +56,6 @@ class HuaWei:
     def __visit_official_website(self):
         print("{0} 开始进入华为官网".format(datetime.now()))
         self.browser.get('https://www.vmall.com/')
-        self.browser.implicitly_wait(20)
         print("{0} 已进入华为官网".format(datetime.now()))
 
     def __visit_product_page(self):
@@ -67,7 +67,6 @@ class HuaWei:
     def __refresh_product_page(self):
         print("{0} 开始刷新 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
         self.browser.refresh()
-        self.browser.implicitly_wait(20)
         print("{0} 结束刷新 {1} 产品详情页".format(datetime.now(), self.config.get("product", "name")))
 
     def __choose_product(self):
@@ -180,6 +179,7 @@ class HuaWei:
 
         print("{0} 设置浏览器参数完成".format(datetime.now()))
         self.browser.maximize_window()
+        self.browser.implicitly_wait(5)
 
     def __firefox_setting(self):
         options = webdriver.FirefoxOptions()
@@ -233,20 +233,18 @@ class HuaWei:
         while self.isCountdown:
             countdown_times = self.__get_countdown_time()
             if len(countdown_times) > 0:
-                print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), format_countdown_time(countdown_times)))
+                print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), utils.format_countdown_time(countdown_times)))
                 self.__set_start_buying(countdown_times)
                 if not self.isStartBuying:
                     time.sleep(1)
 
     def __start_buying(self):
         while self.isStartBuying:
-            countdown_times = self.__get_countdown_time()
-            if len(countdown_times) > 0:
-                print("{0} 距离抢购开始还剩：{1}".format(datetime.now(), format_countdown_time(countdown_times)))
-                button_element = WebDriverWait(self.browser, self.defaultTimeout).until(
-                    EC.presence_of_element_located((By.XPATH, "//div[@id='pro-operation']/a"))
-                )
+            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), utils.seconds_diff(datetime.now(), self.startBuyingTime)))
+            try:
+                button_element = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation > span")
                 button_element.click()
+            except NoSuchElementException:
                 time.sleep(0.0001)
 
     def __buy_now(self):
@@ -281,6 +279,7 @@ class HuaWei:
         if int(countdown_times[3]) < 10:
             self.isCountdown = False
             self.isStartBuying = True
+            self.startBuyingTime = utils.get_start_buying_time(countdown_times)
 
     def __goto_login_page(self):
         print("{0} 点击登录按钮".format(datetime.now()))
@@ -307,7 +306,6 @@ class HuaWei:
             EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))
         ).click()
         print("{0} 发起登陆请求".format(datetime.now()))
-        self.browser.implicitly_wait(20)
 
     def __check_is_need_verification_code(self):
         print("{0} 检查是否需要获取验证码".format(datetime.now()))
@@ -338,22 +336,20 @@ class HuaWei:
             print("{0} 检查是否需要获取验证码超时".format(datetime.now()))
             pass
 
-        print("{0} 检查是否需要拼图验证，检查结果：{1}".format(datetime.now(),
-                                                             "需要" if isNeedJigsawVerification else "不需要"))
+        print("{0} 检查是否需要拼图验证，检查结果：{1}".format(datetime.now(), "需要" if isNeedJigsawVerification else "不需要"))
         return isNeedJigsawVerification
 
     def __check_is_input_verification_code(self):
         print("{0} 检查是否已经输入验证码".format(datetime.now()))
         isInputVerificationCode = False
         try:
-            self.browser.find_element(By.CSS_SELECTOR,
-                                      ".hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn .hwid-disabled").click()
+            self.browser.find_element(By.CSS_SELECTOR, ".hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn "
+                                                       ".hwid-disabled").click()
         except NoSuchElementException:
             isInputVerificationCode = True
             pass
 
-        print("{0} 检查是否已经输入验证码，检查结果：{1}".format(datetime.now(),
-                                                               "是" if isInputVerificationCode else "否"))
+        print("{0} 检查是否已经输入验证码，检查结果：{1}".format(datetime.now(), "是" if isInputVerificationCode else "否"))
         return isInputVerificationCode
 
     def __click_send_verification_code(self):

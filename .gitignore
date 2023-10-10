@@ -19,5 +19,7 @@ html
 
 # MacOS
 .DS_Store
+**/logs
 *.log
+**/*.log
 

@@ -38,7 +38,7 @@
 - 开始自动抢购
 - 自动提交订单
 - 无窗口模式支持
-- 多浏览器支持（Safari、edge 未支持）
+- 多浏览器支持（Safari、edge）
 - <del>多平台支持（天猫、京东）</del> 平台不支持PC购买
 
 ## 运行环境
@@ -47,6 +47,8 @@
 - [Python下载](https://www.python.org/)
 - [ChromeDriver下载](https://sites.google.com/chromium.org/driver/downloads)
 - [GeckoDriver下载](https://github.com/mozilla/geckodriver/releases)
+- [EdgeDriver下载](https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/)
+- [SafariDriver无需下载]
 
 ## 第三方库
 
@@ -74,7 +76,7 @@
 
 (3)浏览器：`type`、`driverPath`、 `headless`、 `userAgent` 分别对应浏览器类型、浏览器驱动绝对路径、是否开启无界面模式、userAgent：
 
-> `type` 默认为chrome，目前仅支持chrome、firefox，后续支持其他浏览器
+> `type` 默认为chrome，目前已支持chrome、firefox、edge、safari，单safari还有些问题待处理
 > 
 > `driverPath` 对应浏览器类型的驱动绝对路径，如果设置，则加载该路径的驱动，未设置需要将驱动加到环境变量
 > 

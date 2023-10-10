@@ -2,16 +2,14 @@
 # !/usr/bin/python
 import os.path
 import time
-
-from selenium import webdriver
 from datetime import datetime
 
 from selenium.common import StaleElementReferenceException, NoSuchElementException, TimeoutException
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from browser.browser_factory import BrowserFactory
 from config import Config
 import utils
 
@@ -33,6 +31,13 @@ class HuaWei:
         print("{0} 开始解析配置文件".format(datetime.now()))
         self.config = Config(config_file)
         print("{0} 结束解析配置文件".format(datetime.now()))
+
+        log_path = self.config.get("logs", "path", "")
+        log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs") if len(log_path) == 0 else log_path
+        self.log_path = os.path.join(log_path, "selenium.log")
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+
         self.__browser_setting()
 
     def start_process(self):
@@ -149,8 +154,7 @@ class HuaWei:
                 isInputVerificationCode = self.__check_is_input_verification_code()
                 if isInputVerificationCode:
                     verificationCode = self.browser.find_element(By.CSS_SELECTOR,
-                                                                 ".hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute(
-                        'value')
+                                                                 ".hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute('value')
                     verificationCode.strip()
                     if len(verificationCode) != 6:
                         print("{0} 已输入验证码，验证码为【{1}】长度不满足6位，继续等待输入".format(datetime.now(),
@@ -169,65 +173,9 @@ class HuaWei:
     def __browser_setting(self):
         print("{0} 开始设置浏览器参数".format(datetime.now()))
         browserType = self.config.get("browser", "type", 'chrome')
-        if browserType == 'chrome':
-            self.__chrome_setting()
-        elif browserType == 'firefox':
-            self.__firefox_setting()
-        else:
-            print("{0} 不支持的浏览器类型，浏览器类型为：{1}".format(datetime.now(), browserType))
-            exit()
-
-        print("{0} 设置浏览器参数完成".format(datetime.now()))
+        self.browser = BrowserFactory.build(browserType).setting(self.config, self.log_path)
         self.browser.maximize_window()
         self.browser.implicitly_wait(5)
-
-    def __firefox_setting(self):
-        options = webdriver.FirefoxOptions()
-        if self.config.getboolean("browser", "headless", False):
-            options.add_argument('--headless')
-            userAgent = self.config.get("browser", "userAgent",
-                                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/118.0")
-            options.set_preference("general.useragent.override", userAgent)
-
-        # options.add_argument(r"--profile-root={}".format(os.path.dirname(os.path.abspath(__file__))))
-        # options.add_argument(r"-profile={}".format("profiles"))
-
-        driverPath = self.config.get("browser", "driverPath", '')
-        executable_path = None if len(driverPath) < 1 else driverPath
-        self.browser = webdriver.Firefox(
-            service=Service(executable_path=executable_path,
-                            log_path=r"{0}/selenium.log".format(os.path.dirname(os.path.abspath(__file__)))),
-            options=options)
-        self.browser.set_window_size(1920, 1080)
-
-    def __chrome_setting(self):
-        options = webdriver.ChromeOptions()
-        options.add_argument(r"--user-data-dir={}".format(self.config.get("chrome", "userDataDir")))
-        options.add_argument(r"--profile-directory={}".format("Profile 5"))
-        if self.config.getboolean("browser", "headless", False):
-            options.add_argument('--headless')
-            # headless 模式下需要设置user_agent及窗口大小，否则会被识别成移动端访问
-            userAgent = self.config.get("browser", "userAgent",
-                                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36")
-            options.add_argument(r"user-agent={}".format(userAgent))
-            options.add_argument("--window-size=1920,1080")
-
-        options.add_argument('--ignore-certificate-errors')
-        options.add_argument('--ignore-certificate-errors-spki-list')
-        options.add_argument('--ignore-ssl-errors')
-        options.add_argument('--ignore-ssl-error')
-        options.add_argument('--log-level=3')
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--no-sandbox')
-
-        driverPath = self.config.get("browser", "driverPath", '')
-        executable_path = None if len(driverPath) < 1 else driverPath
-        self.browser = webdriver.Chrome(
-            service=Service(executable_path=executable_path,
-                            log_path=r"{0}/selenium.log".format(os.path.dirname(os.path.abspath(__file__)))),
-            options=options)
 
     def __countdown(self):
         while self.isCountdown:
@@ -240,7 +188,8 @@ class HuaWei:
 
     def __start_buying(self):
         while self.isStartBuying:
-            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), utils.seconds_diff(datetime.now(), self.startBuyingTime)))
+            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(),
+                                                     utils.seconds_diff(datetime.now(), self.startBuyingTime)))
             try:
                 button_element = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation > span")
                 button_element.click()
@@ -340,7 +289,8 @@ class HuaWei:
             print("{0} 检查是否需要获取验证码超时".format(datetime.now()))
             pass
 
-        print("{0} 检查是否需要拼图验证，检查结果：{1}".format(datetime.now(), "需要" if isNeedJigsawVerification else "不需要"))
+        print("{0} 检查是否需要拼图验证，检查结果：{1}".format(datetime.now(),
+                                                             "需要" if isNeedJigsawVerification else "不需要"))
         return isNeedJigsawVerification
 
     def __check_is_input_verification_code(self):
@@ -353,7 +303,8 @@ class HuaWei:
             isInputVerificationCode = True
             pass
 
-        print("{0} 检查是否已经输入验证码，检查结果：{1}".format(datetime.now(), "是" if isInputVerificationCode else "否"))
+        print(
+            "{0} 检查是否已经输入验证码，检查结果：{1}".format(datetime.now(), "是" if isInputVerificationCode else "否"))
         return isInputVerificationCode
 
     def __click_send_verification_code(self):

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<title>华为产品抢购成功通知</title>
+		<link crossorigin="anonymous" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" href="https://lib.baomitu.com/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+		<style>
+			body {
+				padding: 0;
+				margin: 0;
+			}
+			.container {
+    			position: relative;
+			}
+			.message {
+				position: absolute;
+			    top: 50%;
+			    left: 50%;
+			    transform: translate(-50%, 100%);
+			    text-align: center;
+			    color: green;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="message">
+				<i class="fa-sharp fa-solid fa-circle-check fa-beat-fade fa-2xl"></i>
+		    	<h1>Y(^_^)Y 恭喜你，抢购成功了!!!</h1>
+		    	<button id="btn" style="border: 0; background-color: #fff; color: #fff;">发送语音</button>
+		    <div>
+		</div>
+	</body>
+
+	<script>
+		window.onload= function() {
+
+			var btnobj = document.getElementById('btn')
+			btnobj.onclick = function() {
+				var message = new SpeechSynthesisUtterance();
+				message.text = '抢购成功，请及时前往订单中心支付';
+				message.lang = 'zh';
+				message.rate = 1;
+				speechSynthesis.speak(message);
+			}
+		}
+	</script>
+</html>

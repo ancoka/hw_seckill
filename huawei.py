@@ -4,7 +4,8 @@ import os.path
 import time
 from datetime import datetime
 
-from selenium.common import StaleElementReferenceException, NoSuchElementException, TimeoutException
+from selenium.common import StaleElementReferenceException, NoSuchElementException, TimeoutException, \
+    ElementClickInterceptedException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -154,7 +155,8 @@ class HuaWei:
                 isInputVerificationCode = self.__check_is_input_verification_code()
                 if isInputVerificationCode:
                     verificationCode = self.browser.find_element(By.CSS_SELECTOR,
-                                                                 ".hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute('value')
+                                                                 ".hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute(
+                        'value')
                     verificationCode.strip()
                     if len(verificationCode) != 6:
                         print("{0} 已输入验证码，验证码为【{1}】长度不满足6位，继续等待输入".format(datetime.now(),
@@ -175,7 +177,7 @@ class HuaWei:
         browserType = self.config.get("browser", "type", 'chrome')
         self.browser = BrowserFactory.build(browserType).setting(self.config, self.log_path)
         self.browser.maximize_window()
-        self.browser.implicitly_wait(5)
+        self.browser.implicitly_wait(10)
 
     def __countdown(self):
         while self.isCountdown:
@@ -188,13 +190,16 @@ class HuaWei:
 
     def __start_buying(self):
         while self.isStartBuying:
-            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(),
-                                                     utils.seconds_diff(datetime.now(), self.startBuyingTime)))
+            second = utils.seconds_diff(datetime.now(), self.startBuyingTime)
+            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), second))
             try:
                 button_element = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation > span")
                 button_element.click()
-            except NoSuchElementException:
+            except (NoSuchElementException, ElementClickInterceptedException):
                 time.sleep(0.0001)
+
+            if second <= -5:
+                self.isStartBuying = False
 
     def __buy_now(self):
         if self.isBuyNow:
@@ -241,7 +246,7 @@ class HuaWei:
             login.click()
         else:
             print("{0} 登陆跳转失败，未找到登陆跳转链接".format(datetime.now()))
-            self.browser.quit()
+            exit()
 
         print("{0} 已跳转登录页面".format(datetime.now()))
 

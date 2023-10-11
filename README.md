@@ -38,8 +38,9 @@
 - 开始自动抢购
 - 自动提交订单
 - 无窗口模式支持
-- 多浏览器支持（Safari、edge）
+- 多浏览器支持
 - <del>多平台支持（天猫、京东）</del> 平台不支持PC购买
+- 下单成功通知功能（待实现）
 
 ## 运行环境
 请安装大于等于python 3.6 的版本及同浏览器版本匹配的浏览器驱动运行此项目
@@ -48,7 +49,7 @@
 - [ChromeDriver下载](https://sites.google.com/chromium.org/driver/downloads)
 - [GeckoDriver下载](https://github.com/mozilla/geckodriver/releases)
 - [EdgeDriver下载](https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/)
-- [SafariDriver无需下载]
+- [SafariDriver无需下载]，需要设置里打开允许远程自动化
 
 ## 第三方库
 
@@ -57,7 +58,7 @@
 
 
 ## 使用教程  
-#### 1. Chrome | Firefox 浏览器
+#### 1. Chrome | Firefox ｜Edge 浏览器
 #### 2. 填写 config.ini 配置信息 
 (1)账号信息：`name`、`password` 填写对应的华为账号、密码
 
@@ -76,7 +77,7 @@
 
 (3)浏览器：`type`、`driverPath`、 `headless`、 `userAgent` 分别对应浏览器类型、浏览器驱动绝对路径、是否开启无界面模式、userAgent：
 
-> `type` 默认为chrome，目前已支持chrome、firefox、edge、safari，单safari还有些问题待处理
+> `type` 默认为chrome，可选：chrome、firefox、edge、safari，目前safari还有些问题不建议选择
 > 
 > `driverPath` 对应浏览器类型的驱动绝对路径，如果设置，则加载该路径的驱动，未设置需要将驱动加到环境变量
 > 

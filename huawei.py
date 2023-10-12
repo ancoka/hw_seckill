@@ -189,24 +189,80 @@ class HuaWei:
                     time.sleep(1)
 
     def __start_buying(self):
+        print("{0} 进入最后下单环节".format(datetime.now()))
+
+        click_times = 0
         while self.isStartBuying:
             second = utils.seconds_diff(datetime.now(), self.startBuyingTime)
-            print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), second))
-            try:
-                button_element = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation > span")
-                button_element.click()
-            except (NoSuchElementException, ElementClickInterceptedException):
-                time.sleep(0.0001)
-
-            if second <= -5:
+            if second >= 0:
+                print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), second))
+            elif second > -2:
+                print("{0} 抢购开始".format(datetime.now(), second))
+                queueIsSuccess = self.__check_queue_is_success()
+                lockInventoryIsSuccess = self.__check_lock_inventory_is_success(queueIsSuccess)
+                if lockInventoryIsSuccess:
+                    # TODO 消息通知，语音提醒或者消息提醒
+                    self.isStartBuying = False
+            else:
                 self.isStartBuying = False
+
+            try:
+                order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单")
+                if order_btn is not None:
+                    order_btn.click()
+            except (NoSuchElementException, ElementClickInterceptedException):
+                click_times += 1
+                print("{0} 已尝试点击立即下单 {1} 次".format(datetime.now(), click_times))
+
+            time.sleep(0.001)
+
+        print("{0} 最后下单环节结束".format(datetime.now()))
+
+    def __check_queue_is_success(self):
+        print("{0} 尝试检查当前排队状态".format(datetime.now()))
+        try:
+            self.browser.find_element(By.ID, 'iframeBox')
+            print("{0} 尝试检查当前排队状态，排队结果：【排队中】".format(datetime.now()))
+            return True
+        except NoSuchElementException:
+            print("{0} 尝试检查当前排队状态，排队结果：【待排队】".format(datetime.now()))
+            return False
+
+    def __check_lock_inventory_is_success(self, queueIsSuccess):
+        print("{0} 尝试检查库存锁定状态".format(datetime.now()))
+        lockInventoryIsSuccess = False
+        if queueIsSuccess:
+            text = self.browser.find_element(By.ID, 'iframeBox').text
+            print("{0} 尝试检查库存锁定状态，{1}".format(datetime.now(), text))
+            lockInventoryIsSuccess = text.find('已售完') == -1
+
+        lockInventoryResult = '已锁定' if lockInventoryIsSuccess else '未锁定'
+        print("{0} 尝试检查库存锁定状态，锁定结果：【{1}】".format(datetime.now(), lockInventoryResult))
+        return lockInventoryIsSuccess
 
     def __buy_now(self):
         if self.isBuyNow:
-            button_element = WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#pro-operation > a"))
-            )[1]
-            button_element.click()
+            print("{0} 开始立即购买".format(datetime.now()))
+
+            try:
+                order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > a", "立即下单")
+                if order_btn is not None:
+                    order_btn.click()
+                else:
+                    print("{0} 未找到【立即下单】按钮".format(datetime.now()))
+            except (NoSuchElementException, ElementClickInterceptedException):
+                print("{0} 未找到【立即下单】按钮或按钮不可点击".format(datetime.now()))
+
+            print("{0} 结束立即购买".format(datetime.now()))
+
+    def __submit_order(self):
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):
+            try:
+                print("{0} 准备提交订单".format(datetime.now()))
+                self.browser.find_element(By.ID, "checkoutSubmit").click()
+                print("{0} 提交订单成功".format(datetime.now()))
+            except NoSuchElementException:
+                print("{0} 提交订单失败".format(datetime.now()))
 
     def __get_countdown_time(self):
         attempts = 0
@@ -234,7 +290,7 @@ class HuaWei:
     def __set_start_buying(self, countdown_times):
         if countdown_times[0] != "00" or countdown_times[1] != "00" or countdown_times[2] != "00":
             return
-        if int(countdown_times[3]) < 10:
+        if int(countdown_times[3]) <= 5:
             self.isCountdown = False
             self.isStartBuying = True
             self.startBuyingTime = utils.get_start_buying_time(countdown_times)
@@ -381,15 +437,6 @@ class HuaWei:
                 print("{0} 当前可立即下单".format(datetime.now()))
                 self.__set_end_count_down()
                 self.__set_buy_now()
-
-    def __submit_order(self):
-        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):
-            try:
-                print("{0} 准备提交订单".format(datetime.now()))
-                self.browser.find_element(By.ID, "checkoutSubmit").click()
-                print("{0} 提交订单成功".format(datetime.now()))
-            except NoSuchElementException:
-                print("{0} 提交订单失败".format(datetime.now()))
 
     def __set_end_waiting(self):
         self.isWaiting = False

@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
+import math
+import time
 from datetime import datetime, timedelta
+
+import requests
 
 
 def format_countdown_time(countdown_times):
@@ -28,4 +32,15 @@ def date_second_add(date, seconds):
 
 
 def seconds_diff(d1, d2):
-    return (d2 - d1).seconds
+    return (d2 - d1).total_seconds()
+
+
+def get_hw_server_timestamp():
+    res = requests.get("https://buy.vmall.com/queryRushbuyInfo.json?sbomCodes=2601010453707&portal=1&t=1697127872971")
+    if res.ok:
+        data = res.json()
+        return data['currentTime']
+
+
+def get_local_timestamp():
+    return math.floor(time.time() * 1000)

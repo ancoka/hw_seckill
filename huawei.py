@@ -52,7 +52,6 @@ class HuaWei:
             self.__countdown()
             self.__start_buying()
             self.__buy_now()
-            self.__submit_order()
 
     def stop_process(self):
         print("{0} 结束抢购华为手机 {1}".format(datetime.now(), self.config.get("product", "name")))
@@ -196,13 +195,10 @@ class HuaWei:
             second = utils.seconds_diff(datetime.now(), self.startBuyingTime)
             if second >= 0:
                 print("{0} 距离抢购开始还剩{1}秒".format(datetime.now(), second))
+                self.__check_box_ct_pop_stage()
             elif second > -2:
                 print("{0} 抢购开始".format(datetime.now(), second))
-                queueIsSuccess = self.__check_queue_is_success()
-                lockInventoryIsSuccess = self.__check_lock_inventory_is_success(queueIsSuccess)
-                if lockInventoryIsSuccess:
-                    # TODO 消息通知，语音提醒或者消息提醒
-                    self.isStartBuying = False
+                self.__check_iframe_box_stage()
             else:
                 self.isStartBuying = False
 
@@ -218,15 +214,84 @@ class HuaWei:
 
         print("{0} 最后下单环节结束".format(datetime.now()))
 
-    def __check_queue_is_success(self):
-        print("{0} 尝试检查当前排队状态".format(datetime.now()))
+    def __check_box_ct_pop_exists(self):
+        boxCtPopIsExists = False
+        try:
+            self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content")
+            boxCtPopIsExists = True
+        except NoSuchElementException:
+            pass
+        return boxCtPopIsExists
+
+    def __check_box_ct_pop_stage(self):
+        boxCtPopIsExists = self.__check_box_ct_pop_exists()
+        if boxCtPopIsExists:
+            self.__check_box_ct_pop_act_is_started()
+            self.__check_box_ct_pop_product_is_not_buy()
+
+    def __check_box_ct_pop_act_is_started(self):
+        actIsStarted = True
+        try:
+            activity_text = self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content").text
+            actIsStarted = activity_text.find('活动未开始') != -1
+        except NoSuchElementException:
+            pass
+
+        if not actIsStarted:
+            print("{0} 动作太快了，活动未开始，关闭弹窗重试中".format(datetime.now()))
+            try:
+                box_btn = self.__find_element_text(By.CSS_SELECTOR, ".box-ct .box-cc .box-content .box-button .box-ok",
+                                                   '知道了', None)
+                if box_btn is not None:
+                    box_btn.click()
+            except (NoSuchElementException, ElementClickInterceptedException):
+                pass
+
+    def __check_box_ct_pop_product_is_not_buy(self):
+        productIsNotBuy = False
+        try:
+            activity_text = self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content").text
+            productIsNotBuy = activity_text.find('抱歉，没有抢到') != -1
+        except NoSuchElementException:
+            pass
+
+        if productIsNotBuy:
+            print("{0} 抱歉，没有抢到，再试试".format(datetime.now()))
+            try:
+                box_btn = self.__find_element_text(By.CSS_SELECTOR, ".box-ct .box-cc .box-content .box-button .box-ok",
+                                                   '再试试', None)
+                if box_btn is not None:
+                    box_btn.click()
+                    self.isStartBuying = True
+            except (NoSuchElementException, ElementClickInterceptedException):
+                pass
+
+    def __check_iframe_box_pop_exists(self):
+        iframeBoxExists = False
         try:
             self.browser.find_element(By.ID, 'iframeBox')
-            print("{0} 尝试检查当前排队状态，排队结果：【排队中】".format(datetime.now()))
-            return True
+            iframeBoxExists = True
         except NoSuchElementException:
-            print("{0} 尝试检查当前排队状态，排队结果：【待排队】".format(datetime.now()))
-            return False
+            pass
+        return iframeBoxExists
+
+    def __check_iframe_box_stage(self):
+        iframeBoxExists = self.__check_iframe_box_pop_exists()
+        if iframeBoxExists:
+            queueIsSuccess = self.__check_queue_stage()
+            lockInventoryIsSuccess = self.__check_lock_inventory_is_success(queueIsSuccess)
+            if lockInventoryIsSuccess:
+                self.isStartBuying = False
+                self.__submit_order()
+                self.__check_box_ct_pop_stage()
+
+    def __check_queue_stage(self):
+        print("{0} 尝试检查当前排队状态".format(datetime.now()))
+        iframe_content = self.browser.find_element(By.ID, 'iframeBox').text
+        queueIsSuccess = iframe_content.find("排队中") == -1
+        print(
+            "{0} 尝试检查当前排队状态，排队结果：【{1}】".format(datetime.now(), '已排队' if queueIsSuccess else '排队中'))
+        return queueIsSuccess
 
     def __check_lock_inventory_is_success(self, queueIsSuccess):
         print("{0} 尝试检查库存锁定状态".format(datetime.now()))
@@ -243,7 +308,6 @@ class HuaWei:
     def __buy_now(self):
         if self.isBuyNow:
             print("{0} 开始立即购买".format(datetime.now()))
-
             try:
                 order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > a", "立即下单")
                 if order_btn is not None:
@@ -252,8 +316,8 @@ class HuaWei:
                     print("{0} 未找到【立即下单】按钮".format(datetime.now()))
             except (NoSuchElementException, ElementClickInterceptedException):
                 print("{0} 未找到【立即下单】按钮或按钮不可点击".format(datetime.now()))
-
             print("{0} 结束立即购买".format(datetime.now()))
+            self.__submit_order()
 
     def __submit_order(self):
         if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):

@@ -233,7 +233,7 @@ class HuaWei:
         actIsStarted = True
         try:
             activity_text = self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content").text
-            actIsStarted = activity_text.find('活动未开始') != -1
+            actIsStarted = activity_text.find('活动未开始') == -1
         except NoSuchElementException:
             pass
 

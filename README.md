@@ -97,5 +97,8 @@
 #### 3.运行main.py 
 > python main.py
 
+## 关注我
+!["漫漫编程路"](./wechat.png)
+
 ## 打赏 
 无

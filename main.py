@@ -1,14 +1,26 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
 import os
+from datetime import datetime
 
 from huawei import HuaWei
+from loguru import logger
 
 
 def main():
     huawei = HuaWei(os.path.abspath("./config.ini"))
     huawei.start_process()
     huawei.stop_process()
+
+
+def log():
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    log_name = os.path.join(log_path, "log_all_{}.log".format(datetime.now().strftime('%Y%m%d')))
+    log_error_name = os.path.join(log_path, "log_error_{}.log".format(datetime.now().strftime('%Y%m%d')))
+    logger.add(log_name, format="{time} {level} {message}", filter="", rotation='100 MB', retention='15 days',
+               level="DEBUG", encoding='utf8', enqueue=True)
+    logger.add(log_error_name, format="{time} {level} {message}", rotation='100 MB', retention='15 days',
+               level="ERROR", encoding='utf8', enqueue=True)
 
 
 if __name__ == '__main__':
@@ -21,5 +33,6 @@ if __name__ == '__main__':
          888     888     `888'`888'            oo     .d8P 888    .o 888   .o8  888  `88b.   888   888   888  
         o888o   o888o     `8'  `8'             8""88888P'  `Y8bod8P' `Y8bod8P' o888o  o888o o888o o888o o888o                                                                                                                                                                             
     """
-    print(banner)
+    log()
+    logger.info(banner)
     main()

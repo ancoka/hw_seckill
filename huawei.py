@@ -302,15 +302,24 @@ class HuaWei:
         return queueIsSuccess
 
     def __check_product_is_sold_out(self, queueIsSuccess):
-        logger.info("尝试检查商品是否已售完")
         productIsSoldOut = False
         if queueIsSuccess:
-            text = self.browser.find_element(By.ID, 'iframeBox').text
-            logger.info("尝试检查商品是否已售完，{}", text)
-            productIsSoldOut = text.find('已售完') != -1
+            text = ""
+            times = 1
+            while len(text) < 1:
+                if times > 10:
+                    break
+                text = self.browser.find_element(By.ID, 'iframeBox').text
+                logger.info("第【{}】次尝试检查排队弹窗内容，结果：{}", times, text)
+                if len(text) > 0:
+                    productIsSoldOut = text.find('已售完') != -1
+                else:
+                    pass
+                time.sleep(0.01)
+                times += 1
 
         productSoleOutResult = '已售完' if productIsSoldOut else '未售完'
-        logger.info("尝试检查商品是否已售完，锁定结果：【{}】", productSoleOutResult)
+        logger.info("尝试检查商品是否已售完，结果：【{}】", productSoleOutResult)
         return productIsSoldOut
 
     def __buy_now(self):

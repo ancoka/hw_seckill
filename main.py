@@ -8,9 +8,12 @@ from loguru import logger
 
 
 def main():
-    huawei = HuaWei(os.path.abspath("./config.ini"))
-    huawei.start_process()
-    huawei.stop_process()
+    try:
+        huawei = HuaWei(os.path.abspath("./config.ini"))
+        huawei.start_process()
+        huawei.stop_process()
+    except Exception as e:
+        logger.error("程序执行异常：except: {}", e)
 
 
 def log():

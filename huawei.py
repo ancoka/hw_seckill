@@ -28,6 +28,21 @@ class HuaWei:
     nickname = "游客"
     # 全局页面元素超时时间，单位S
     defaultTimeout = 60
+    tipMsgs = [
+        '抱歉，已售完，下次再来',
+        '抱歉，没有抢到',
+        '抱歉，仅限预约用户购买',
+        '抢购活动未开始，看看其他商品吧',
+        '本次发售商品数量有限，您已超过购买上限，请勿重复抢购，将机会留给其他人吧',
+        '抱歉，您不符合购买条件',
+        '登记排队，有货时通知您',
+        '抱歉，库存不足',
+        '您已超过购买上限，本场活动最多还能买',
+        '当前排队人数过多，是否继续排队等待？',
+        '排队中',
+        '秒杀活动已结束',
+        '秒杀火爆<br/>该秒杀商品已售罄',
+    ]
 
     def __init__(self, config_file):
         log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -188,17 +203,16 @@ class HuaWei:
                     time.sleep(1)
 
     def __start_buying(self):
-        logger.info("进入最后下单环节")
-
+        logger.info("进入抢购活动最后下单环节")
         click_times = 0
         while self.isStartBuying:
             second = utils.seconds_diff(datetime.now(), self.startBuyingTime)
             if second >= 0:
-                logger.info("距离抢购开始还剩{}秒", second)
+                logger.info("距离抢购活动最后下单环节开始还剩 {} 秒", second)
                 self.__check_box_ct_pop_stage()
             elif second > -2:
-                logger.info("抢购开始")
-                self.__check_iframe_box_stage()
+                logger.info("抢购活动最后下单环节，开始抢购中")
+                self.__submit_order(self.__class__.__name__)
             else:
                 self.isStartBuying = False
 
@@ -208,11 +222,11 @@ class HuaWei:
                     order_btn.click()
             except (NoSuchElementException, ElementClickInterceptedException):
                 click_times += 1
-                logger.info("已尝试点击立即下单 {} 次", click_times)
+                logger.info("抢购活动最后下单环节，已尝试点击立即下单 {} 次", click_times)
 
             time.sleep(0.001)
 
-        logger.info("最后下单环节结束")
+        logger.info("抢购活动最后下单环节结束")
 
     def __check_box_ct_pop_exists(self):
         boxCtPopIsExists = False
@@ -273,54 +287,59 @@ class HuaWei:
                 pass
 
     def __check_iframe_box_pop_exists(self):
+        logger.info("开始检查是否出现排队弹窗")
         iframeBoxExists = False
         try:
-            self.browser.find_element(By.ID, 'iframeBox')
+            self.browser.find_element(By.CSS_SELECTOR, '#iframeBox #queueIframe')
             iframeBoxExists = True
         except NoSuchElementException:
             pass
+        logger.info("结束检查是否出现排队弹窗")
         return iframeBoxExists
 
-    def __check_iframe_box_stage(self):
+    def __check_can_submit_order(self):
+        logger.info("检查是否可以进行下单操作")
         iframeBoxExists = self.__check_iframe_box_pop_exists()
+        checkResult = 1
+        iframeText = ""
         if iframeBoxExists:
-            queueIsSuccess = self.__check_queue_stage()
-            productIsSoldOut = self.__check_product_is_sold_out(queueIsSuccess)
-            if not productIsSoldOut:
-                self.__check_box_ct_pop_stage()
-                pageType = self.__get_current_page_type()
-                if pageType == "order":
-                    self.isStartBuying = False
-                    self.__submit_order()
-                    self.__check_box_ct_pop_stage()
-
-    def __check_queue_stage(self):
-        logger.info("尝试检查当前排队状态")
-        iframe_content = self.browser.find_element(By.ID, 'iframeBox').text
-        queueIsSuccess = iframe_content.find("排队中") == -1
-        logger.info("尝试检查当前排队状态，排队结果：【{}】", '已排队' if queueIsSuccess else '排队中')
-        return queueIsSuccess
-
-    def __check_product_is_sold_out(self, queueIsSuccess):
-        productIsSoldOut = False
-        if queueIsSuccess:
-            text = ""
-            times = 1
-            while len(text) < 1:
-                if times > 10:
-                    break
-                text = self.browser.find_element(By.ID, 'iframeBox').text
-                logger.info("第【{}】次尝试检查排队弹窗内容，结果：{}", times, text)
-                if len(text) > 0:
-                    productIsSoldOut = text.find('已售完') != -1
+            iframe = self.browser.find_element(By.CSS_SELECTOR, '#iframeBox #queueIframe')
+            self.browser.switch_to.frame(iframe)
+            iframeText = self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue .queue-tips').text
+            logger.info("检查是否可以进行下单操作，当前 iframe 弹窗具体 HTML 内容：{}",
+                        self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue').get_attribute('outerHTML'))
+            for tipMsg in self.tipMsgs:
+                if iframeText.find(tipMsg) != -1:
+                    if tipMsg == '排队中':
+                        logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
+                        checkResult = 0
+                        break
+                    elif tipMsg == '当前排队人数过多，是否继续排队等待？':
+                        logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
+                        checkResult = 0
+                        try:
+                            btnOk = self.__find_element_text(By.CSS_SELECTOR, ".ecWeb-queue .queue-btn .btn-ok",
+                                                             '继续等待', None)
+                            if btnOk is not None:
+                                btnOk.click()
+                        except (NoSuchElementException, ElementClickInterceptedException) as e:
+                            logger.error("检查是否可以进行下单操作，继续等待按钮未找到：except: {} element: {}", e,
+                                         self.browser.page_source)
+                            pass
+                        break
+                    else:
+                        logger.warning("检查是否可以进行下单操作，当前提醒内容：【{}】", tipMsg)
+                        checkResult = -1
+                        break
                 else:
                     pass
-                time.sleep(0.01)
-                times += 1
 
-        productSoleOutResult = '已售完' if productIsSoldOut else '未售完'
-        logger.info("尝试检查商品是否已售完，结果：【{}】", productSoleOutResult)
-        return productIsSoldOut
+        checkResultDict = {-1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
+        if checkResult == 1:
+            logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText, checkResultDict[checkResult])
+        else:
+            logger.info("检查是否可以进行下单操作，检查结果：【{}】", checkResultDict[checkResult])
+        return checkResult
 
     def __buy_now(self):
         if self.isBuyNow:
@@ -334,16 +353,42 @@ class HuaWei:
             except (NoSuchElementException, ElementClickInterceptedException) as e:
                 logger.info("未找到【立即下单】按钮或按钮不可点击； except:{} element: {}", e, self.browser.page_source)
             logger.info("结束立即购买")
-            self.__submit_order()
+            self.__submit_order(self.__class__.__name__)
 
-    def __submit_order(self):
-        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):
-            try:
-                logger.info("准备提交订单")
-                self.browser.find_element(By.ID, "checkoutSubmit").click()
-                logger.success("提交订单成功")
-            except NoSuchElementException as noe:
-                logger.info("提交订单失败； except: {}, element: {}", noe, self.browser.page_source)
+    def __submit_order(self, source):
+        if source == '__start_buying':
+            self.__check_box_ct_pop_stage()
+            canSubmitOrder = self.__check_can_submit_order()
+            pageType = self.__get_current_page_type()
+            if canSubmitOrder and pageType == 'order':
+                clickSuccess = self.__click_submit_order()
+                if clickSuccess:
+                    self.isStartBuying = False
+        else:
+            self.__click_submit_order()
+
+    def __click_submit_order(self):
+        logger.info("开始点击提交订单")
+        clickSuccess = False
+        try:
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#checkoutSubmit > span"), "提交订单")(self.browser):
+                try:
+                    self.browser.find_element(By.ID, "checkoutSubmit").click()
+                    logger.info("已点击提交订单")
+                    boxCtPopIsExists = self.__check_box_ct_pop_stage()
+                    if boxCtPopIsExists:
+                        clickSuccess = False
+                        logger.warning("已点击提交订单，提交订单不成功，重试中...")
+                    else:
+                        clickSuccess = True
+                        logger.success("已点击提交订单，提交订单成功")
+                except NoSuchElementException as noe:
+                    logger.error("点击提交订单异常，提交订单不存在； except: {}, element: {}", noe, self.browser.page_source)
+                    clickSuccess = False
+        except Exception as e:
+            logger.error("点击提交订单异常: {}", e)
+            clickSuccess = False
+        return clickSuccess
 
     def __get_countdown_time(self):
         attempts = 0

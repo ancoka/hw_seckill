@@ -62,15 +62,15 @@
 #### 2. 填写 config.ini 配置信息 
 (1)账号信息：`name`、`password` 填写对应的华为账号、密码
 
-(2)商品信息：`name`、`id`、 `color`、`version`,`saleType`,`sets` 分别为对应的商品名称、商品ID、手机颜色（宣白）、手机版本（16GB+512GB）、销售类型、套装规格
+(2)商品信息：`name`、`id`、 `color`、`version`,`saleType`,`sets` 分别为对应的商品名称、商品ID、商品颜色或款式（宣白）、版本（16GB+512GB）、销售类型、套装规格
 
 > `id`默认填写Mate60Pro+，如需修改请自行修改
 > 
-> `color` 默认填写宣白，如需修改请自行修改对应手机的颜色
+> `color` 默认填写宣白，如需修改请自行修改对应商品对颜色或款式，如：手机为颜色、手表为款式
 > 
-> `version` 默认填写16GB+512GB，如需修改请自行修改对应手机的版本
+> `version` 默认填写16GB+512GB，如需修改请自行修改对应商品的版本
 > 
-> `saleType` 销售类型，默认填写全款购买，如需修改请自行修改对应手机支持的销售类型
+> `saleType` 销售类型，默认填写全款购买，如需修改请自行修改对应商品持的销售类型
 > 
 > `sets` 套装规格默认为空，当填写后程序将只抢购套装；需要填写套装对应的SKU信息，不同SKU信息之前采用“,”分割，如：“12GB+512GB 青山黛,木星棕 深棕色真皮表带,雅川青 无线充版”
 
@@ -88,8 +88,13 @@
 
 (4)谷歌浏览器特殊配置：`userDataDir`谷歌浏览器默认用户数据目录：
 - MacOS默认路径为：/Users/用户名/Library/Application Support/Google/Chrome/Default
-- Windows默认路径为：C:/Users/用户名/AppData/Local/Google/Chrome/User Data
+- Windows默认路径为：C:/Users/用户名/AppData/Local/Google/Chrome/User Data/Default
 - Linux默认路径为：~/.config/google-chrome/Default
+
+(5)Edge浏览器特殊配置：`userDataDir`Edge浏览器默认用户数据目录：
+- MacOS默认路径为：/Users/用户名/Library/Application Support/Microsoft Edge/Default
+- Windows默认路径为：C:/Users/用户名/AppData/Local/Microsoft Edge/Default
+- Linux默认路径为：~/.config/microsoft-edge/Default
 
 以上都是必须的.
 

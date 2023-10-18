@@ -137,9 +137,11 @@ class HuaWei:
         self.__get_current_page_type()
         self.__submit_login()
         self.__get_current_page_type()
-        self.__login_security_verification()
-        self.__trust_browser()
         self.__check_is_logged_in()
+        if not self.isLogin:
+            self.__login_security_verification()
+            self.__trust_browser()
+            self.__check_is_logged_in()
 
         """ 
         TODO：实现cookie记录，并实现Cookie登陆

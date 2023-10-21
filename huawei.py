@@ -214,7 +214,7 @@ class HuaWei:
                 self.__check_box_ct_pop_stage()
             elif second > -2:
                 logger.info("抢购活动最后下单环节，开始抢购中")
-                self.__submit_order(self.__class__.__name__)
+                self.__submit_order("__start_buying")
             else:
                 self.isStartBuying = False
 
@@ -355,7 +355,7 @@ class HuaWei:
             except (NoSuchElementException, ElementClickInterceptedException) as e:
                 logger.info("未找到【立即下单】按钮或按钮不可点击； except:{} element: {}", e, self.browser.page_source)
             logger.info("结束立即购买")
-            self.__submit_order(self.__class__.__name__)
+            self.__submit_order("__buy_now")
 
     def __submit_order(self, source):
         if source == '__start_buying':

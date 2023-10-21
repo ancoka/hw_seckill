@@ -12,7 +12,7 @@ class ChromeBrowser(Browser):
     def setting(self, config: Config = None, log_path: str = ""):
         options = webdriver.ChromeOptions()
 
-        options.add_argument(r"--user-data-dir={}".format(config.get("edge", "userDataDir")))
+        options.add_argument(r"--user-data-dir={}".format(config.get("chrome", "userDataDir")))
         options.add_argument(r"--profile-directory={}".format("Profile 5"))
         if config.getboolean("browser", "headless", False):
             options.add_argument('--headless')

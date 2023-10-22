@@ -27,7 +27,10 @@ class HuaWei:
     isBuyNow = False
     nickname = "游客"
     # 全局页面元素超时时间，单位S
-    defaultTimeout = 60
+    defaultTimeout = 30
+    secKillTime = None
+    hwServerTimestamp = None
+    localTimestamp = None
     tipMsgs = [
         '抱歉，已售完，下次再来',
         '抱歉，没有抢到',
@@ -53,6 +56,7 @@ class HuaWei:
         self.config = Config(config_file)
         logger.info("结束解析配置文件")
         self.__browser_setting()
+        self.__get_local_and_hw_server_time_diff()
 
     def start_process(self):
         logger.info("开启抢购华为手机 {0}".format(self.config.get("product", "name")))
@@ -66,11 +70,11 @@ class HuaWei:
             self.__choose_product()
             self.__countdown()
             self.__start_buying()
-            self.__buy_now()
+            # self.__buy_now()
 
     def stop_process(self):
         logger.info("结束抢购华为手机 {0}".format(self.config.get("product", "name")))
-        time.sleep(120)
+        # time.sleep(120)
         self.browser.quit()
 
     def __visit_official_website(self):
@@ -197,7 +201,7 @@ class HuaWei:
 
     def __countdown(self):
         while self.isCountdown:
-            countdown_times = self.__get_countdown_time()
+            countdown_times = utils.calc_countdown_times(self.secKillTime, self.localTimestamp - self.hwServerTimestamp)
             if len(countdown_times) > 0:
                 logger.info("距离抢购开始还剩：{}", utils.format_countdown_time(countdown_times))
                 self.__set_start_buying(countdown_times)
@@ -208,26 +212,31 @@ class HuaWei:
         logger.info("进入抢购活动最后下单环节")
         click_times = 0
         while self.isStartBuying:
-            second = utils.seconds_diff(datetime.now(), self.startBuyingTime)
-            if second >= 0:
-                logger.info("距离抢购活动最后下单环节开始还剩 {} 秒", second)
-                self.__check_box_ct_pop_stage()
-            elif second > -2:
+            countdownMsDiff = utils.calc_countdown_ms_diff(self.secKillTime,
+                                                           self.localTimestamp - self.hwServerTimestamp)
+            countdown_times = utils.calc_countdown_times(self.secKillTime,
+                                                         self.localTimestamp - self.hwServerTimestamp)
+            if countdownMsDiff > 1000:
+                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
+                time.sleep(1)
+            elif countdownMsDiff > 100:
+                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
+                time.sleep(0.1)
+            elif countdownMsDiff > -10000:
                 logger.info("抢购活动最后下单环节，开始抢购中")
+                try:
+                    order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单")
+                    if order_btn is not None:
+                        order_btn.click()
+                except (NoSuchElementException, ElementClickInterceptedException):
+                    click_times += 1
+                    logger.info("抢购活动最后下单环节，已尝试点击立即下单 {} 次", click_times)
+
+                self.__check_box_ct_pop_stage()
                 self.__submit_order("__start_buying")
+                time.sleep(0.001)
             else:
                 self.isStartBuying = False
-
-            try:
-                order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单")
-                if order_btn is not None:
-                    order_btn.click()
-            except (NoSuchElementException, ElementClickInterceptedException):
-                click_times += 1
-                logger.info("抢购活动最后下单环节，已尝试点击立即下单 {} 次", click_times)
-
-            time.sleep(0.001)
-
         logger.info("抢购活动最后下单环节结束")
 
     def __check_box_ct_pop_exists(self):
@@ -338,7 +347,8 @@ class HuaWei:
 
         checkResultDict = {-1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
         if checkResult == 1:
-            logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText, checkResultDict[checkResult])
+            logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
+                        checkResultDict[checkResult])
         else:
             logger.info("检查是否可以进行下单操作，检查结果：【{}】", checkResultDict[checkResult])
         return checkResult
@@ -385,43 +395,21 @@ class HuaWei:
                         clickSuccess = True
                         logger.success("已点击提交订单，提交订单成功")
                 except NoSuchElementException as noe:
-                    logger.error("点击提交订单异常，提交订单不存在； except: {}, element: {}", noe, self.browser.page_source)
+                    logger.error("点击提交订单异常，提交订单不存在； except: {}, element: {}", noe,
+                                 self.browser.page_source)
                     clickSuccess = False
         except Exception as e:
             logger.error("点击提交订单异常: {}", e)
             clickSuccess = False
         return clickSuccess
 
-    def __get_countdown_time(self):
-        attempts = 0
-        countdown_times = []
-        while attempts < 5:
-            countdown_times = []
-            try:
-                elements = self.browser.find_elements(By.CSS_SELECTOR, "#pro-operation li > span")
-                element_length = len(elements)
-                for i in range(element_length):
-                    try:
-                        countdown_times.append(elements[i].text)
-                    except StaleElementReferenceException:
-                        # 页面元素因为动态渲染，导致查找的元素不再是原来的元素，导致异常
-                        element = self.browser.find_elements(By.CSS_SELECTOR, "#pro-operation li > span")[i]
-                        countdown_times.append(element.text)
-
-                return countdown_times
-            except (TimeoutException, NoSuchElementException):
-                self.__refresh_product_page()
-                self.__choose_product()
-                attempts += 1
-        return countdown_times
-
     def __set_start_buying(self, countdown_times):
-        if countdown_times[0] != "00" or countdown_times[1] != "00" or countdown_times[2] != "00":
-            return
-        if int(countdown_times[3]) <= 5:
+        if (countdown_times[0] != "00" or countdown_times[1] != "00" or
+                countdown_times[2] != "00" or int(countdown_times[3]) > 5):
+            pass
+        else:
             self.isCountdown = False
             self.isStartBuying = True
-            self.startBuyingTime = utils.get_start_buying_time(countdown_times)
 
     def __goto_login_page(self):
         logger.info("点击登录按钮")
@@ -557,8 +545,9 @@ class HuaWei:
             elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "即将开始")(
                     self.browser):
                 logger.info("倒计时即将开始")
-                self.__set_end_waiting()
-                if not self.isCountdown:
+                self.__get_sec_kill_time()
+                if self.secKillTime is not None:
+                    self.__set_end_waiting()
                     time.sleep(1)
             else:
                 logger.info("当前可立即下单")
@@ -606,3 +595,33 @@ class HuaWei:
             pass
         logger.info("当前所在页面类型：{0} 地址：{1}".format(pageType, currentUrl))
         return pageType
+
+    def __get_sec_kill_time(self):
+        logger.info("开始获取抢购开始时间")
+        tryTimes = 1
+        while self.secKillTime is None:
+            if tryTimes > 3:
+                break
+            try:
+                countdownStr = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation-countdown > p").text
+                countdownStr = datetime.now().strftime("%Y年") + countdownStr[:-3]
+                self.secKillTime = datetime.strptime(countdownStr, "%Y年%m月%d日 %H:%M")
+                logger.info("抢购开始时间为：[{}]", self.secKillTime)
+            except (StaleElementReferenceException, NoSuchElementException):
+                pass
+            tryTimes += 1
+
+        logger.info("获取抢购开始时间结束")
+
+    def __get_local_and_hw_server_time_diff(self):
+        logger.info("开始获取华为服务器时间及本地时间")
+        self.hwServerTimestamp = utils.get_hw_server_timestamp()
+        self.localTimestamp = utils.get_local_timestamp()
+
+        logger.info("当前华为服务器时间为：[{}]", utils.timestamp2time(self.hwServerTimestamp))
+        logger.info("当前本地时间为：【{}】", utils.timestamp2time(self.localTimestamp))
+
+        timeDiff = self.localTimestamp - self.hwServerTimestamp
+        compareRes = "晚于" if timeDiff >= 0 else "早于"
+        logger.info("结束获取华为服务器时间及本地时间，结果：本地时间【{}】华为服务器时间【{}】毫秒", compareRes,
+                    abs(timeDiff))

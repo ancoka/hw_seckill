@@ -219,11 +219,10 @@ class HuaWei:
             if countdownMsDiff > 1000:
                 logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
                 time.sleep(1)
-            elif countdownMsDiff > 100:
-                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
-                time.sleep(0.1)
-            elif countdownMsDiff > -10000:
+            else:
                 logger.info("抢购活动最后下单环节，开始抢购中")
+                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
+                self.__check_box_ct_pop_stage()
                 try:
                     order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单")
                     if order_btn is not None:
@@ -232,11 +231,8 @@ class HuaWei:
                     click_times += 1
                     logger.info("抢购活动最后下单环节，已尝试点击立即下单 {} 次", click_times)
 
-                self.__check_box_ct_pop_stage()
                 self.__submit_order("__start_buying")
                 time.sleep(0.001)
-            else:
-                self.isStartBuying = False
         logger.info("抢购活动最后下单环节结束")
 
     def __check_box_ct_pop_exists(self):

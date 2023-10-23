@@ -70,11 +70,11 @@ class HuaWei:
             self.__choose_product()
             self.__countdown()
             self.__start_buying()
-            # self.__buy_now()
+            self.__buy_now()
 
     def stop_process(self):
         logger.info("结束抢购华为手机 {0}".format(self.config.get("product", "name")))
-        # time.sleep(120)
+        time.sleep(120)
         self.browser.quit()
 
     def __visit_official_website(self):
@@ -238,7 +238,7 @@ class HuaWei:
     def __check_box_ct_pop_exists(self):
         boxCtPopIsExists = False
         try:
-            self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content")
+            self.browser.find_element(By.CSS_SELECTOR, "#show_risk_msg_box .box-ct .box-cc .box-content")
             boxCtPopIsExists = True
         except NoSuchElementException:
             pass
@@ -586,6 +586,8 @@ class HuaWei:
             pageType = 'product'
         elif currentUrl.find("www.vmall.com/order/nowConfirmcart") != -1:
             pageType = 'order'
+        elif currentUrl.find("payment.vmall.com/cashier/web/pcIndex.htm") != -1:
+            pageType = 'payment'
         else:
             pageType = 'unknown'
             pass

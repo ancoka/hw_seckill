@@ -329,6 +329,7 @@ class HuaWei:
                                                              '继续等待', None)
                             if btnOk is not None:
                                 btnOk.click()
+                                self.browser.switch_to.default_content()
                         except (NoSuchElementException, ElementClickInterceptedException) as e:
                             logger.error("检查是否可以进行下单操作，继续等待按钮未找到：except: {} element: {}", e,
                                          self.browser.page_source)
@@ -341,6 +342,7 @@ class HuaWei:
                 else:
                     pass
 
+        self.browser.switch_to.default_content()
         checkResultDict = {-1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
         if checkResult == 1:
             logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,

@@ -27,12 +27,12 @@ class HuaWei:
     isStartBuying = False
     startBuyingTime = None
     isBuyNow = False
-    nickname = "游客"
     # 全局页面元素超时时间，单位S
     defaultTimeout = 30
     secKillTime = None
     hwServerTimestamp = None
     localTimestamp = None
+    driverWait = None
     tipMsgs = [
         '抱歉，已售完，下次再来',
         '抱歉，没有抢到',
@@ -59,15 +59,14 @@ class HuaWei:
         logger.info("结束解析配置文件")
         self.__browser_setting()
         self.__get_local_and_hw_server_time_diff()
+        self.driverWait = WebDriverWait(self.browser, 2, 0.01)
 
     def start_process(self):
         logger.info("开启抢购华为手机 {0}".format(self.config.get("product", "name")))
         self.__visit_official_website()
-        self.__get_current_page_type()
         self.__login()
         if self.isLogin:
             self.__visit_product_page()
-            self.__get_current_page_type()
             self.__waiting_count()
             self.__choose_product()
             self.__countdown()
@@ -79,83 +78,105 @@ class HuaWei:
         time.sleep(120)
         self.browser.quit()
 
+    def __browser_setting(self):
+        logger.info("开始设置浏览器参数")
+        browserType = self.config.get("browser", "type", 'chrome')
+        self.browser = BrowserFactory.build(browserType).setting(self.config, self.selenium_log_path)
+        self.browser.maximize_window()
+
     def __visit_official_website(self):
         logger.info("开始进入华为官网")
         self.browser.get('https://www.vmall.com/')
-        logger.info("已进入华为官网")
-
-    def __visit_product_page(self):
-        logger.info("开始进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
-        self.browser.get("https://www.vmall.com/product/{0}.html".format(self.config.get("product", "id")))
-        logger.info("已进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
-        self.__refresh_product_page()
-
-    def __refresh_product_page(self):
-        logger.info("开始刷新 {0} 产品详情页".format(self.config.get("product", "name")))
-        self.browser.refresh()
-        logger.info("结束刷新 {0} 产品详情页".format(self.config.get("product", "name")))
-
-    def __choose_product(self):
-        sets = self.config.get("product", "sets", "")
-        if len(sets) > 0:
-            self.__choose_product_sets(sets)
-        else:
-            self.__choose_product_item()
-
-    def __choose_product_sets(self, sets):
-        logger.info("开始选择手机套装规格")
-        set_skus = sets.split(",")
-        for sku in set_skus:
-            WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_element_located((By.LINK_TEXT, f"{sku}"))
-            ).click()
-        sku_payment = '无'
-        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
-                self.browser):
-            sku_payment = self.config.get("product", "payment", "全款购买")
-            WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
-            ).click()
-        logger.info("选择手机套装规格完成，套装规格：{0} 销售类型：{1}".format(sets, sku_payment))
-
-    def __choose_product_item(self):
-        logger.info("开始选择手机单品规格")
-        sku_color = self.config.get("product", "color")
-        sku_version = self.config.get("product", "version")
-        WebDriverWait(self.browser, self.defaultTimeout).until(
-            EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))
-        ).click()
-        WebDriverWait(self.browser, self.defaultTimeout).until(
-            EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))
-        ).click()
-        sku_payment = '无'
-        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
-                self.browser):
-            sku_payment = self.config.get("product", "payment")
-            WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))
-            ).click()
-        logger.info("选择手机单品规格完成，颜色：{0} 版本：{1} 销售类型：{1}".format(sku_color, sku_version, sku_payment))
+        try:
+            self.driverWait.until(EC.url_changes)
+            logger.info("已进入华为官网")
+            self.__get_current_page_type()
+        except TimeoutException:
+            logger.warning("进入华为官网失败，程序将在3秒后退出...")
+            time.sleep(3)
+            self.browser.quit()
 
     def __login(self):
         logger.info("开始登陆华为账号")
         self.__goto_login_page()
-        self.__get_current_page_type()
-        self.__submit_login()
-        self.__get_current_page_type()
-        self.__check_is_logged_in()
-        if not self.isLogin:
-            self.__login_security_verification()
-            self.__trust_browser()
-            self.__check_is_logged_in()
+        self.__do_login()
 
-        """ 
+        loginTimes = 1
+        while not self.isLogin and loginTimes < 3:
+            logger.info("开始第 {} 次尝试登陆华为账号", loginTimes)
+            loggedResult = self.__check_logged_result()
+            if loggedResult > 0:
+                self.isLogin = True
+            elif loggedResult == 0:
+                self.__login_security_verification()
+                self.__trust_browser()
+                self.isLogin = self.__current_is_login_page()
+            else:
+                self.isLogin = False
+            loginDesc = '失败' if self.isLogin else '成功'
+            logger.info("第 {} 次尝试登陆华为账号，登陆结果：{}", loginTimes, loginDesc)
+            loginTimes += 1
+
+        if not self.isLogin:
+            logger.warning("登陆华为账号失败，程序将在3秒后退出...")
+            time.sleep(3)
+            exit()
+
+        """
         TODO：实现cookie记录，并实现Cookie登陆
         """
-        if self.isLogin:
-            logger.success("当前登陆账号为：{0}".format(self.nickname))
 
+        nickname = self.__get_logged_nickname()
+        logger.success("当前登陆账号昵称为：{0}".format(nickname))
         logger.info("结束登陆华为账号")
+
+    def __goto_login_page(self):
+        currentUrl = self.browser.current_url
+        loginLink = None
+        times = 1
+        while loginLink is None and times < 3:
+            loginLink = self.__find_element_text(By.CLASS_NAME, "r-1a7l8x0", '请登录', True)
+            times += 1
+
+        if loginLink is None:
+            logger.warning("登陆跳转失败，未找到登陆跳转链接，程序将在3秒后退出...")
+            time.sleep(3)
+            exit()
+
+        logger.info("开始点击登录按钮")
+        loginLink.click()
+
+        try:
+            self.driverWait.until(EC.title_contains('华为帐号-登录'))
+            logger.info("已跳转登录页面")
+            self.__get_current_page_type()
+        except TimeoutException:
+            logger.warning("登陆跳转失败，未找到登陆跳转链接，程序将在3秒后退出...")
+            time.sleep(3)
+            exit()
+
+    def __do_login(self):
+        logger.info("开始输入账号及密码")
+        inputElements = self.driverWait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "hwid-input")))
+
+        inputElements[0].send_keys(self.config.get("user", "name"))
+        inputElements[1].send_keys(self.config.get("user", "password"))
+        logger.info("已输入账号及密码")
+
+        self.driverWait.until(EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))).click()
+        logger.info("发起登陆请求")
+
+    def __check_logged_result(self):
+        loggedResult = 0
+        isLoginPage = self.__current_is_login_page()
+        isNeedVerificationCode = self.__check_is_need_verification_code()
+        if not isLoginPage:
+            loggedResult = 1
+        elif isLoginPage and not isNeedVerificationCode:
+            loggedResult = - 1
+        else:
+            pass
+        return loggedResult
 
     def __login_security_verification(self):
         isNeedJigsawVerification = self.__check_is_need_jigsaw_verification()
@@ -173,12 +194,12 @@ class HuaWei:
                     verificationCode = input("请输入验证码：")
                     verificationCode.strip()
                     self.browser.find_element(By.CSS_SELECTOR,
-                                              ".hwid-getAuthCode-input .hwid-input-area .hwid-input").send_keys(
+                                              ".hwid-dialog-main .hwid-getAuthCode-input .hwid-input-area .hwid-input").send_keys(
                         verificationCode)
                 isInputVerificationCode = self.__check_is_input_verification_code()
                 if isInputVerificationCode:
                     verificationCode = self.browser.find_element(By.CSS_SELECTOR,
-                                                                 ".hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute(
+                                                                 ".hwid-dialog-main .hwid-getAuthCode-input .hwid-input-area .hwid-input").get_attribute(
                         'value')
                     verificationCode.strip()
                     if len(verificationCode) != 6:
@@ -187,22 +208,184 @@ class HuaWei:
                     else:
                         logger.info("已输入验证码，验证码为【{}】", verificationCode)
                         self.browser.find_element(By.CSS_SELECTOR,
-                                                  ".hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn").click()
+                                                  ".hwid-dialog-main .hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn").click()
                         isNeedVerificationCode = False
                 else:
                     time.sleep(5)
         else:
             pass
 
-    def __browser_setting(self):
-        logger.info("开始设置浏览器参数")
-        browserType = self.config.get("browser", "type", 'chrome')
-        self.browser = BrowserFactory.build(browserType).setting(self.config, self.selenium_log_path)
-        self.browser.maximize_window()
-        self.browser.implicitly_wait(10)
+    def __check_is_need_jigsaw_verification(self):
+        logger.info("检查是否需要拼图验证")
+        isNeedJigsawVerification = False
+        try:
+            self.browser.find_element(By.CLASS_NAME, "yidun_modal__wrap")
+            isNeedJigsawVerification = True
+        except NoSuchElementException:
+            pass
+
+        logger.info("检查是否需要拼图验证，检查结果：{}", "需要" if isNeedJigsawVerification else "不需要")
+        return isNeedJigsawVerification
+
+    def __check_is_need_verification_code(self):
+        logger.info("检查是否需要获取验证码")
+        isNeedVerificationCode = False
+        try:
+            isNeedVerificationCode = self.driverWait.until(EC.text_to_be_present_in_element(
+                (By.CSS_SELECTOR, ".hwid-dialog-main .hwid-getAuthCode .hwid-smsCode"),
+                "获取验证码"))
+        except TimeoutException:
+            pass
+
+        logger.info("检查是否需要获取验证码，检查结果：{}", "需要" if isNeedVerificationCode else "不需要")
+        return isNeedVerificationCode
+
+    def __check_is_input_verification_code(self):
+        logger.info("检查是否已经输入验证码")
+        isInputVerificationCode = False
+        try:
+            self.browser.find_element(By.CSS_SELECTOR, ".hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn "
+                                                       ".hwid-disabled").click()
+        except NoSuchElementException:
+            isInputVerificationCode = True
+            pass
+
+        logger.info("检查是否已经输入验证码，检查结果：{}", "是" if isInputVerificationCode else "否")
+        return isInputVerificationCode
+
+    def __click_send_verification_code(self):
+        logger.info("进行短信验证码发送")
+        try:
+            self.driverWait.until(EC.presence_of_element_located((By.CLASS_NAME, "hwid-smsCode"))).click()
+            logger.success("短信验证码已发送")
+        except TimeoutException:
+            logger.warning("短信验证码已发送超时")
+
+    def __check_is_need_trust_browser(self):
+        logger.info("检查是否需要信任浏览器")
+        isNeedTrustBrowser = False
+        try:
+            isNeedTrustBrowser = self.driverWait.until(EC.text_to_be_present_in_element(
+                (By.CSS_SELECTOR, ".hwid-trustBrowser"), "是否信任此浏览器？"))
+        except TimeoutException:
+            pass
+
+        logger.info("检查是否需要信任浏览器，检查结果：{}", "是" if isNeedTrustBrowser else "否")
+        return isNeedTrustBrowser
+
+    def __trust_browser(self):
+        isNeedTrustBrowser = self.__check_is_need_trust_browser()
+        while isNeedTrustBrowser:
+            logger.info("等待信任浏览器中......")
+            try:
+                self.__find_element_text(By.CSS_SELECTOR, ".hwid-trustBrowser .hwid-dialog-textBtnBox .normalBtn",
+                                         "信任", True).click()
+                isNeedTrustBrowser = False
+            except (NoSuchElementException, TimeoutException):
+                pass
+            time.sleep(5)
+
+    def __current_is_login_page(self):
+        try:
+            isLoginPage = self.driverWait.until_not(EC.url_contains("id1.cloud.huawei.com/CAS/portal/loginAuth.html"))
+        except TimeoutException:
+            isLoginPage = True
+            pass
+        return isLoginPage
+
+    def __check_is_logged_in(self):
+        self.isLogin = self.__current_is_login_page()
+        if self.isLogin:
+            logger.success("账号登陆成功")
+            self.nickname = self.__get_logged_nickname()
+        else:
+            logger.warning("账号登陆失败，请重试...")
+
+    def __get_logged_nickname(self):
+        nickname = '游客'
+        try:
+            nickname = self.driverWait.until(EC.presence_of_element_located((By.CLASS_NAME, "r-1a7l8x0"))).text
+        except TimeoutException:
+            logger.warning("获取当前登陆账号昵称超时")
+        return nickname
+
+    def __visit_product_page(self):
+        currentUrl = self.browser.current_url
+        logger.info("开始进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
+        self.browser.get("https://www.vmall.com/product/{0}.html".format(self.config.get("product", "id")))
+        try:
+            self.driverWait.until(EC.url_changes(currentUrl))
+            logger.info("已进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
+            self.__get_current_page_type()
+        except TimeoutException:
+            logger.info("进入华为 {0} 产品详情页失败，程序将在3秒后退出...".format(self.config.get("product", "name")))
+            time.sleep(3)
+            self.browser.quit()
+
+    def __waiting_count(self):
+        while self.isWaiting:
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂不售卖")(
+                    self.browser):
+                logger.info("【{}】倒计时未开始，等待中...", "暂不售卖")
+                time.sleep(120)
+                self.__refresh_product_page()
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂时缺货")(
+                    self.browser):
+                logger.info("【{}】倒计时未开始，等待中...", "暂时缺货")
+                time.sleep(120)
+                self.__refresh_product_page()
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "即将开始")(
+                    self.browser):
+                logger.info("倒计时即将开始")
+                self.__get_sec_kill_time()
+                if self.secKillTime is not None:
+                    self.__set_end_waiting()
+                    time.sleep(1)
+            else:
+                logger.info("当前可立即下单")
+                self.__set_end_count_down()
+                self.__set_buy_now()
+
+    def __refresh_product_page(self):
+        logger.info("开始刷新 {0} 产品详情页".format(self.config.get("product", "name")))
+        self.browser.refresh()
+        logger.info("结束刷新 {0} 产品详情页".format(self.config.get("product", "name")))
+
+    def __choose_product(self):
+        sets = self.config.get("product", "sets", "")
+        if len(sets) > 0:
+            self.__choose_product_sets(sets)
+        else:
+            self.__choose_product_item()
+
+    def __choose_product_sets(self, sets):
+        logger.info("开始选择手机套装规格")
+        set_skus = sets.split(",")
+        for sku in set_skus:
+            self.driverWait.until(EC.presence_of_element_located((By.LINK_TEXT, f"{sku}"))).click()
+        sku_payment = '无'
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
+                self.browser):
+            sku_payment = self.config.get("product", "payment", "全款购买")
+            self.driverWait.until(EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))).click()
+        logger.info("选择手机套装规格完成，套装规格：{0} 销售类型：{1}".format(sets, sku_payment))
+
+    def __choose_product_item(self):
+        logger.info("开始选择手机单品规格")
+        sku_color = self.config.get("product", "color")
+        sku_version = self.config.get("product", "version")
+        self.driverWait.until(EC.presence_of_element_located((By.LINK_TEXT, f"{sku_color}"))).click()
+        self.driverWait.until(EC.presence_of_element_located((By.LINK_TEXT, f"{sku_version}"))).click()
+        sku_payment = '无'
+        if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-skus > dl:last-child > label"), "选择销售类型")(
+                self.browser):
+            sku_payment = self.config.get("product", "payment")
+            self.driverWait.until(EC.presence_of_element_located((By.LINK_TEXT, f"{sku_payment}"))).click()
+        logger.info("选择手机单品规格完成，颜色：{0} 版本：{1} 销售类型：{1}".format(sku_color, sku_version, sku_payment))
 
     def __countdown(self):
         while self.isCountdown:
+            currentUrl = self.browser.current_url
             countdown_times = utils.calc_countdown_times(self.secKillTime, self.localTimestamp - self.hwServerTimestamp)
             if len(countdown_times) > 0:
                 logger.info("距离抢购开始还剩：{}", utils.format_countdown_time(countdown_times))
@@ -211,7 +394,7 @@ class HuaWei:
                     time.sleep(1)
 
     def __start_buying(self):
-        logger.info("进入抢购活动最后下单环节")
+        logger.info("进入抢购活动最后排队下单环节")
         click_times = 0
         while self.isStartBuying:
             countdownMsDiff = utils.calc_countdown_ms_diff(self.secKillTime,
@@ -221,12 +404,16 @@ class HuaWei:
             if countdownMsDiff > 1000:
                 logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
                 time.sleep(1)
+            elif countdownMsDiff > 100:
+                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
+                time.sleep(0.1)
+            elif countdownMsDiff > 10:
+                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
+                time.sleep(0.01)
             else:
                 logger.info("抢购活动最后下单环节，开始抢购中")
-                logger.info("距离抢购活动最后下单环节开始还剩：{}", utils.format_countdown_time(countdown_times))
-                self.__check_box_ct_pop_stage()
                 try:
-                    order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单")
+                    order_btn = self.__find_element_text(By.CSS_SELECTOR, "#pro-operation > span", "立即下单", True)
                     if order_btn is not None:
                         order_btn.click()
                 except (NoSuchElementException, ElementClickInterceptedException):
@@ -235,7 +422,7 @@ class HuaWei:
 
                 self.__submit_order("__start_buying")
                 time.sleep(0.001)
-        logger.info("抢购活动最后下单环节结束")
+        logger.info("抢购活动最后排队下单环节结束")
 
     def __check_box_ct_pop_exists(self):
         boxCtPopIsExists = False
@@ -344,7 +531,7 @@ class HuaWei:
                 else:
                     pass
 
-        self.browser.switch_to.default_content()
+            self.browser.switch_to.default_content()
         checkResultDict = {-1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
         if checkResult == 1:
             logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
@@ -411,149 +598,6 @@ class HuaWei:
             self.isCountdown = False
             self.isStartBuying = True
 
-    def __goto_login_page(self):
-        logger.info("点击登录按钮")
-        login = self.__find_element_text(By.CLASS_NAME, "r-1a7l8x0", '请登录', True)
-        if login is not None:
-            login.click()
-        else:
-            logger.warning("登陆跳转失败，未找到登陆跳转链接", self.browser.page_source)
-            exit()
-
-        logger.info("已跳转登录页面")
-
-    def __submit_login(self):
-        logger.info("开始输入账号及密码")
-        input_elements = WebDriverWait(self.browser, self.defaultTimeout).until(
-            EC.presence_of_all_elements_located((By.CLASS_NAME, "hwid-input"))
-        )
-
-        input_elements[0].send_keys(self.config.get("user", "name"))
-        input_elements[1].send_keys(self.config.get("user", "password"))
-        logger.info("已输入账号及密码")
-
-        WebDriverWait(self.browser, self.defaultTimeout).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))
-        ).click()
-        logger.info("发起登陆请求")
-
-    def __check_is_need_verification_code(self):
-        logger.info("检查是否需要获取验证码")
-        isNeedVerificationCode = False
-        try:
-            isNeedVerificationCode = EC.text_to_be_present_in_element(
-                (By.CSS_SELECTOR, ".hwid-getAuthCode .hwid-smsCode > span > span"),
-                "获取验证码")(self.browser)
-        except NoSuchElementException as noe:
-            logger.error("检查是否需要获取验证码，页面元素不存在; except:{}", noe)
-            pass
-        except TimeoutException as te:
-            logger.error("检查是否需要获取验证码超时; except:{} element:{}", te, self.browser.page_source)
-            pass
-
-        logger.info("检查是否需要获取验证码，检查结果：{}", "需要" if isNeedVerificationCode else "不需要")
-        return isNeedVerificationCode
-
-    def __check_is_need_jigsaw_verification(self):
-        logger.info("检查是否需要拼图验证")
-        isNeedJigsawVerification = False
-        try:
-            self.browser.find_element(By.CLASS_NAME, "yidun_modal__wrap")
-            isNeedJigsawVerification = True
-        except NoSuchElementException as noe:
-            logger.error("检查是否需要拼图验证，页面元素不存在; except:{}", noe)
-            pass
-        except TimeoutException as te:
-            logger.error("检查是否需要拼图验证; except:{} element:{}", te, self.browser.page_source)
-            pass
-
-        logger.info("检查是否需要拼图验证，检查结果：{}", "需要" if isNeedJigsawVerification else "不需要")
-        return isNeedJigsawVerification
-
-    def __check_is_input_verification_code(self):
-        logger.info("检查是否已经输入验证码")
-        isInputVerificationCode = False
-        try:
-            self.browser.find_element(By.CSS_SELECTOR, ".hwid-dialog-footer .hwid-button-base-box2 .dialogFooterBtn "
-                                                       ".hwid-disabled").click()
-        except NoSuchElementException:
-            isInputVerificationCode = True
-            pass
-
-        logger.info("检查是否已经输入验证码，检查结果：{}", "是" if isInputVerificationCode else "否")
-        return isInputVerificationCode
-
-    def __click_send_verification_code(self):
-        logger.info("进行短信验证码发送")
-        try:
-            WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "hwid-smsCode"))
-            ).click()
-            logger.success("短信验证码已发送")
-        except TimeoutException:
-            logger.warning("短信验证码已发送超时")
-            pass
-
-    def __trust_browser(self):
-        logger.info("检查是否已经输入验证码")
-        isNeedTrustBrowser = False
-        try:
-            self.browser.find_element(By.CLASS_NAME, "hwid-trustBrowser")
-            isNeedTrustBrowser = True
-        except NoSuchElementException:
-            pass
-
-        if isNeedTrustBrowser:
-            self.browser.find_elements(By.CSS_SELECTOR, ".hwid-trustBrowser .hwid-dialog-textBtnBox .normalBtn")[
-                0].click()
-
-    def __check_is_logged_in(self):
-        try:
-            self.browser.find_element(By.LINK_TEXT, "请登录")
-        except NoSuchElementException:
-            try:
-                element = self.__find_element_text(By.CLASS_NAME, "r-1a7l8x0", "请登录")
-                self.isLogin = element is None
-            except NoSuchElementException:
-                self.isLogin = True
-
-        if self.isLogin:
-            logger.success("账号登陆成功")
-            try:
-                self.nickname = WebDriverWait(self.browser, self.defaultTimeout).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "r-1pn2ns4"))
-                ).text
-            except TimeoutException:
-                logger.warning("获取当前登陆账号昵称超时")
-                pass
-        else:
-            logger.error("账号登陆失败，请重试")
-            pass
-
-    def __waiting_count(self):
-        while self.isWaiting:
-            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂不售卖")(
-                    self.browser):
-                logger.info("【{}】倒计时未开始，等待中...", "暂不售卖")
-                time.sleep(120)
-                self.__refresh_product_page()
-            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂时缺货")(
-                    self.browser):
-                logger.info("【{}】倒计时未开始，等待中...", "暂时缺货")
-                time.sleep(120)
-                self.__refresh_product_page()
-            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "即将开始")(
-                    self.browser):
-                logger.info("倒计时即将开始")
-                self.__get_sec_kill_time()
-                if self.secKillTime is not None:
-                    self.__set_end_waiting()
-                    time.sleep(1)
-            else:
-                logger.info("当前可立即下单")
-                self.__set_end_count_down()
-                self.__set_buy_now()
-
     def __set_end_waiting(self):
         self.isWaiting = False
         self.isCountdown = True
@@ -570,8 +614,11 @@ class HuaWei:
         if wait is None:
             items = self.browser.find_elements(by, value)
         else:
-            items = WebDriverWait(self.browser, self.defaultTimeout).until(
-                EC.presence_of_all_elements_located((by, value)))
+            items = []
+            try:
+                items = self.driverWait.until(EC.presence_of_all_elements_located((by, value)))
+            except TimeoutException:
+                pass
         element = None
         for item in items:
             if text == item.text:
@@ -601,9 +648,7 @@ class HuaWei:
     def __get_sec_kill_time(self):
         logger.info("开始获取抢购开始时间")
         tryTimes = 1
-        while self.secKillTime is None:
-            if tryTimes > 3:
-                break
+        while self.secKillTime is None and tryTimes < 3:
             try:
                 if sys.platform.startswith('win'):
                     locale.setlocale(locale.LC_ALL, 'en')

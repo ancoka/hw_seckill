@@ -3,6 +3,8 @@
 import os
 from datetime import datetime
 
+from selenium.common import WebDriverException
+
 from huawei import HuaWei
 from loguru import logger
 
@@ -12,8 +14,8 @@ def main():
         huawei = HuaWei(os.path.abspath("./config.ini"))
         huawei.start_process()
         huawei.stop_process()
-    except Exception as e:
-        logger.error("程序执行异常：except: {}", e)
+    except WebDriverException as we:
+        logger.error("程序执行异常：except: {}", we)
 
 
 def log():

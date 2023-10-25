@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
+import locale
 import os.path
+import sys
 import time
 from datetime import datetime
 
@@ -603,6 +605,9 @@ class HuaWei:
             if tryTimes > 3:
                 break
             try:
+                if sys.platform.startswith('win'):
+                    locale.setlocale(locale.LC_ALL, 'en')
+                    locale.setlocale(locale.LC_CTYPE, 'chinese')
                 countdownStr = self.browser.find_element(By.CSS_SELECTOR, "#pro-operation-countdown > p").text
                 countdownStr = datetime.now().strftime("%Y年") + countdownStr[:-3]
                 self.secKillTime = datetime.strptime(countdownStr, "%Y年%m月%d日 %H:%M")

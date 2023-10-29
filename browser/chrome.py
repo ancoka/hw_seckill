@@ -9,11 +9,11 @@ from config import Config
 
 
 class ChromeBrowser(Browser):
-    def setting(self, config: Config = None, log_path: str = ""):
+    def setting(self, config: Config = None, log_path: str = "", userDataDir: str = ""):
         options = webdriver.ChromeOptions()
 
-        options.add_argument(r"--user-data-dir={}".format(config.get("chrome", "userDataDir")))
-        options.add_argument(r"--profile-directory={}".format("Profile 5"))
+        options.add_argument(r"--user-data-dir={}".format(userDataDir))
+        options.add_argument(r"--profile-directory={}".format("Default"))
         if config.getboolean("browser", "headless", False):
             options.add_argument('--headless')
             # headless 模式下需要设置user_agent及窗口大小，否则会被识别成移动端访问

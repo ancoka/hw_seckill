@@ -22,4 +22,6 @@ html
 **/logs
 *.log
 **/*.log
+hw_cookies.txt
+profiles/*
 

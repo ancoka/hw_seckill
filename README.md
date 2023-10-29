@@ -39,7 +39,8 @@
 - 自动提交订单
 - 无窗口模式支持
 - 多浏览器支持
-- <del>多平台支持（天猫、京东）</del> 平台不支持PC购买
+- 多线程支持（进行中）
+- 京东APP抢购（规划中）
 - 下单成功通知功能（待实现）
 
 ## 运行环境
@@ -57,9 +58,9 @@
 `pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/`
 
 
-## 使用教程  
+## 使用教程
 #### 1. Chrome | Firefox ｜Edge 浏览器
-#### 2. 填写 config.ini 配置信息 
+#### 2. 填写 config.ini 配置信息
 (1)账号信息：`name`、`password` 填写对应的华为账号、密码
 
 (2)商品信息：`name`、`id`、 `color`、`version`,`saleType`,`sets` 分别为对应的商品名称、商品ID、商品颜色或款式（宣白）、版本（16GB+512GB）、销售类型、套装规格
@@ -86,24 +87,20 @@
 > `userAgent` 需要填写对应浏览器的userAgent，如Chrome：Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
 
 
-(4)谷歌浏览器特殊配置：`userDataDir`谷歌浏览器默认用户数据目录：
-- MacOS默认路径为：/Users/用户名/Library/Application Support/Google/Chrome/Default
-- Windows默认路径为：C:/Users/用户名/AppData/Local/Google/Chrome/User Data/Default
-- Linux默认路径为：~/.config/google-chrome/Default
+(4)程序处理配置：`thread`、`interval` 分别为线程数、提交订单间隔时长：
 
-(5)Edge浏览器特殊配置：`userDataDir`Edge浏览器默认用户数据目录：
-- MacOS默认路径为：/Users/用户名/Library/Application Support/Microsoft Edge/Default
-- Windows默认路径为：C:/Users/用户名/AppData/Local/Microsoft Edge/Default
-- Linux默认路径为：~/.config/microsoft-edge/Default
+> `thread` 线程数，默认为1，表示单线程，最大线程数为20
+> 
+> `interval` 提交订单间隔时长，单位为“秒”，默认为0.001秒，最小为0.001秒
 
 以上都是必须的.
 
 
-#### 3.运行main.py 
+#### 3.运行main.py
 > python main.py
 
 ## 关注我
 !["漫漫编程路"](./wechat.png)
 
-## 打赏 
+## 打赏
 无

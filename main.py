@@ -10,22 +10,22 @@ from loguru import logger
 
 
 def main():
+    huawei = HuaWei()
     try:
-        huawei = HuaWei(os.path.abspath("./config.ini"))
         huawei.start_process()
         huawei.stop_process()
     except WebDriverException as we:
         logger.error("程序执行异常：except: {}", we)
+    finally:
+        os.remove(huawei.cookiesFile)
 
 
 def log():
     log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
     log_name = os.path.join(log_path, "log_all_{}.log".format(datetime.now().strftime('%Y%m%d')))
     log_error_name = os.path.join(log_path, "log_error_{}.log".format(datetime.now().strftime('%Y%m%d')))
-    logger.add(log_name, format="{time} {level} {message}", filter="", rotation='100 MB', retention='15 days',
-               level="DEBUG", encoding='utf8', enqueue=True)
-    logger.add(log_error_name, format="{time} {level} {message}", rotation='100 MB', retention='15 days',
-               level="ERROR", encoding='utf8', enqueue=True)
+    logger.add(log_name, rotation='100 MB', retention='15 days', level="DEBUG", encoding='utf8', enqueue=True)
+    logger.add(log_error_name, rotation='100 MB', retention='15 days', level="ERROR", encoding='utf8', enqueue=True)
 
 
 if __name__ == '__main__':

@@ -136,13 +136,13 @@ class HuaWei:
             self.browser.quit()
 
     def __login(self):
-        logger.info("开始登陆华为账号")
+        logger.info("开始登录华为账号")
         self.__goto_login_page()
         self.__do_login()
 
         loginTimes = 1
         while not self.isLogin and loginTimes < 3:
-            logger.info("开始第 {} 次尝试登陆华为账号", loginTimes)
+            logger.info("开始第 {} 次尝试登录华为账号", loginTimes)
             loggedResult = self.__check_logged_result()
             if loggedResult > 0:
                 self.isLogin = True
@@ -153,19 +153,19 @@ class HuaWei:
             else:
                 self.isLogin = False
             loginDesc = '成功' if self.isLogin else '失败'
-            logger.info("第 {} 次尝试登陆华为账号，登陆结果：{}", loginTimes, loginDesc)
+            logger.info("第 {} 次尝试登录华为账号，登录结果：{}", loginTimes, loginDesc)
             loginTimes += 1
 
         if not self.isLogin:
-            logger.warning("登陆华为账号失败，程序将在3秒后退出...")
+            logger.warning("登录华为账号失败，程序将在3秒后退出...")
             time.sleep(3)
             exit()
 
         self.__cookies_save()
 
         nickname = self.__get_logged_nickname()
-        logger.success("当前登陆账号昵称为：{0}".format(nickname))
-        logger.info("结束登陆华为账号")
+        logger.success("当前登录账号昵称为：{0}".format(nickname))
+        logger.info("结束登录华为账号")
 
     def __cookies_save(self):
         cookies = self.browser.get_cookies()
@@ -192,7 +192,7 @@ class HuaWei:
             times += 1
 
         if loginLink is None:
-            logger.warning("登陆跳转失败，未找到登陆跳转链接，程序将在3秒后退出...")
+            logger.warning("登录跳转失败，未找到登录跳转链接，程序将在3秒后退出...")
             time.sleep(3)
             exit()
 
@@ -204,7 +204,7 @@ class HuaWei:
             logger.info("已跳转登录页面")
             self.__get_current_page_type()
         except TimeoutException:
-            logger.warning("登陆跳转失败，未找到登陆跳转链接，程序将在3秒后退出...")
+            logger.warning("登录跳转失败，未找到登录跳转链接，程序将在3秒后退出...")
             time.sleep(3)
             exit()
 
@@ -217,7 +217,7 @@ class HuaWei:
         logger.info("已输入账号及密码")
 
         self.driverWait.until(EC.presence_of_element_located((By.CLASS_NAME, "hwid-login-btn"))).click()
-        logger.info("发起登陆请求")
+        logger.info("发起登录请求")
 
     def __check_logged_result(self):
         loggedResult = 0
@@ -352,17 +352,17 @@ class HuaWei:
     def __check_is_logged_in(self):
         self.isLogin = self.__current_is_login_page()
         if self.isLogin:
-            logger.success("账号登陆成功")
+            logger.success("账号登录成功")
             self.nickname = self.__get_logged_nickname()
         else:
-            logger.warning("账号登陆失败，请重试...")
+            logger.warning("账号登录失败，请重试...")
 
     def __get_logged_nickname(self):
         nickname = '游客'
         try:
             nickname = self.driverWait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".r-1a7l8x0"))).text
         except TimeoutException:
-            logger.warning("获取当前登陆账号昵称超时")
+            logger.warning("获取当前登录账号昵称超时")
         return nickname
 
     def __visit_product_page(self):

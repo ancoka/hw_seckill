@@ -17,7 +17,8 @@ def main():
     except WebDriverException as we:
         logger.error("程序执行异常：except: {}", we)
     finally:
-        os.remove(huawei.cookiesFile)
+        if os.path.exists(huawei.cookiesFile):
+            os.remove(huawei.cookiesFile)
 
 
 def log():

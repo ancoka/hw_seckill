@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
 import os
+import sys
 from datetime import datetime
-
 from selenium.common import WebDriverException
-
 from huawei import HuaWei
 from loguru import logger
+
+LOGURU_FORMAT = ("<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                 "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+                 "<cyan>{thread.name}</cyan>:<cyan>{thread.id}</cyan> - <level>{message}</level>")
 
 
 def main():
@@ -25,8 +28,15 @@ def log():
     log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
     log_name = os.path.join(log_path, "log_all_{}.log".format(datetime.now().strftime('%Y%m%d')))
     log_error_name = os.path.join(log_path, "log_error_{}.log".format(datetime.now().strftime('%Y%m%d')))
-    logger.add(log_name, rotation='100 MB', retention='15 days', level="DEBUG", encoding='utf8', enqueue=True)
-    logger.add(log_error_name, rotation='100 MB', retention='15 days', level="ERROR", encoding='utf8', enqueue=True)
+    logFormat = ("<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                 "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+                 "<cyan>{process.name}</cyan>:<cyan>{thread.name}</cyan> - <level>{message}</level>")
+    logger.remove()
+    logger.add(log_name, format=logFormat, rotation='100 MB', retention='15 days', level="DEBUG", encoding='utf8',
+               enqueue=True)
+    logger.add(log_error_name, format=logFormat, rotation='100 MB', retention='15 days', level="ERROR", encoding='utf8',
+               enqueue=True)
+    logger.add(sink=sys.stdout, format=logFormat, level="DEBUG")
 
 
 if __name__ == '__main__':
@@ -41,4 +51,8 @@ if __name__ == '__main__':
     """
     log()
     logger.info(banner)
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.info("正常退出")
+        exit(0)

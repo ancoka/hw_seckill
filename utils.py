@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
 import math
+import os
 import time
 from datetime import datetime, timedelta
 
@@ -74,3 +75,8 @@ def calc_countdown_times(targetDatetime, msDiff):
     countdown_times = [str(days).zfill(2), str(hours).zfill(2), str(minutes).zfill(2), str(seconds).zfill(2),
                        str(microseconds).zfill(3)]
     return countdown_times
+
+
+def get_profile_path(baseProfilePath, browserType, profileIndex):
+    baseBrowserProfilePath = os.path.join(baseProfilePath, browserType)
+    return os.path.join(baseBrowserProfilePath, "profile_{0}".format(profileIndex))

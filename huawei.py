@@ -432,11 +432,11 @@ class HuaWei:
             currentUrl = self.browser.current_url
             countdownMsDiff = utils.calc_countdown_ms_diff(self.secKillTime,
                                                            self.localTimestamp - self.hwServerTimestamp)
-            countdown_times = utils.calc_countdown_times(self.secKillTime,
-                                                         self.localTimestamp - self.hwServerTimestamp)
+            countdownTimes = utils.calc_countdown_times(self.secKillTime,
+                                                        self.localTimestamp - self.hwServerTimestamp)
 
-            if countdownMsDiff > 60000:
-                logger.info("距离抢购开始还剩：{}", utils.format_countdown_time(countdown_times))
+            if countdownMsDiff > 120000:
+                logger.info("距离抢购开始还剩：{}", utils.format_countdown_time(countdownTimes))
                 time.sleep(5)
             else:
                 self.__set_end_countdown()
@@ -567,10 +567,13 @@ class HuaWei:
         return iframeBoxExists
 
     def __check_can_submit_order(self):
-        if not self.isCanSubmitOrder:
-            self.__check_box_ct_pop_stage()
+        if self.isCanSubmitOrder:
+            pass
+        else:
             logger.info("检查是否可以进行下单操作")
-            isOrderSubmitPage = EC.url_contains("www.vmall.com/order/nowConfirmcart")
+            self.__check_box_ct_pop_stage()
+            self.__get_current_page_type()
+            isOrderSubmitPage = EC.url_contains("www.vmall.com/order/nowConfirmcart")(self.browser)
             checkResult = 1
             if not isOrderSubmitPage:
                 iframeBoxExists = self.__check_iframe_box_pop_exists()
@@ -618,15 +621,10 @@ class HuaWei:
                 iframeText = '待提交订单'
                 pass
             checkResultDict = {-2: '活动未开始', -1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
-            if checkResult == 1:
-                logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
-                            checkResultDict[checkResult])
-            else:
-                logger.info("检查是否可以进行下单操作，检查结果：【{}】", checkResultDict[checkResult])
+            logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
+                        checkResultDict[checkResult])
             if checkResult == 1:
                 self.__set_end_start_buying()
-        else:
-            pass
 
     def __buy_now(self):
         if self.isBuyNow:
@@ -644,7 +642,6 @@ class HuaWei:
 
     def __submit_order(self):
         while self.isCanSubmitOrder:
-            self.__get_current_page_type()
             clickSuccess = self.__click_submit_order()
             if clickSuccess:
                 self.isCanSubmitOrder = False
@@ -653,14 +650,18 @@ class HuaWei:
         logger.info("开始点击提交订单")
         clickSuccess = False
         try:
-            self.browser.find_element(By.ID, "checkoutSubmit").click()
-            logger.info("已点击提交订单")
-            boxCtPopIsExists = self.__check_box_ct_pop_stage()
-            if boxCtPopIsExists:
-                logger.warning("已点击提交订单，提交订单不成功，重试中...")
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit > span'), '提交订单')(self.browser):
+                self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
+                boxCtPopIsExists = self.__check_box_ct_pop_stage()
+                if boxCtPopIsExists:
+                    logger.warning("已点击提交订单，提交订单不成功，重试中...")
+                else:
+                    clickSuccess = True
+                    logger.success("已点击提交订单，提交订单成功")
+                    logger.info("当前页面html内容：{}", self.browser.find_element(By.TAG_NAME, 'html')
+                                .get_attribute('outerHTML'))
             else:
-                clickSuccess = True
-                logger.success("已点击提交订单，提交订单成功")
+                pass
         except NoSuchElementException as noe:
             logger.error("点击提交订单异常，提交订单按钮不存在； except: {}", noe)
         except ElementClickInterceptedException as cie:

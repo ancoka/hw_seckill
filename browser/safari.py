@@ -8,7 +8,7 @@ from config import Config
 
 class SafariBrowser(Browser):
 
-    def setting(self, config: Config = None, log_path: str = ""):
+    def setting(self, config: Config = None, log_path: str = "", userDataDir: str = ""):
         options = webdriver.SafariOptions()
 
         if config.getboolean("browser", "headless", False):

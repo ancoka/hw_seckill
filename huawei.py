@@ -628,38 +628,48 @@ class HuaWei:
 
     def __buy_now(self):
         if self.isBuyNow:
+            currentUrl = self.browser.current_url
             logger.info("开始立即购买")
             try:
                 buttons = self.driverWait.until(
                     EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#pro-operation > a')))
+                orderBtn = None
                 for button in buttons:
                     if '立即下单' == button.text:
-                        button.click()
+                        orderBtn = button
+                if orderBtn is not None:
+                    orderBtn.click()
+                    time.sleep(1)
+                    self.__click_submit_order(currentUrl)
             except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
                 logger.info("未找到【立即下单】按钮或按钮不可点击； except:{}", e)
             logger.info("结束立即购买")
-            self.__click_submit_order()
 
     def __submit_order(self):
-        while self.isCanSubmitOrder:
-            clickSuccess = self.__click_submit_order()
-            if clickSuccess:
-                self.isCanSubmitOrder = False
+        if self.isCanSubmitOrder:
+            currentUrl = self.browser.current_url
+            while self.isCanSubmitOrder:
+                clickSuccess = self.__click_submit_order(currentUrl)
+                if clickSuccess:
+                    self.isCanSubmitOrder = False
+                time.sleep(float(self.config.get('process', 'interval', '0.001')))
 
-    def __click_submit_order(self):
+    def __click_submit_order(self, currentUrl):
         logger.info("开始点击提交订单")
         clickSuccess = False
         try:
+            self.__check_box_ct_pop_stage()
             if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit > span'), '提交订单')(self.browser):
                 self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
                 boxCtPopIsExists = self.__check_box_ct_pop_stage()
                 if boxCtPopIsExists:
                     logger.warning("已点击提交订单，提交订单不成功，重试中...")
                 else:
-                    clickSuccess = True
-                    logger.success("已点击提交订单，提交订单成功")
-                    logger.info("当前页面html内容：{}", self.browser.find_element(By.TAG_NAME, 'html')
-                                .get_attribute('outerHTML'))
+                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains("payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
+                        clickSuccess = True
+                        logger.success("已点击提交订单，提交订单成功")
+                    else:
+                        pass
             else:
                 pass
         except NoSuchElementException as noe:

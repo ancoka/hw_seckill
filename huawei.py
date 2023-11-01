@@ -465,7 +465,7 @@ class HuaWei:
                 self.__check_can_submit_order()
                 self.__submit_order()
                 clickTimes += 1
-                time.sleep(self.config.get('process', 'interval', '0.001'))
+                time.sleep(float(self.config.get('process', 'interval', '0.001')))
         logger.info("抢购活动最后排队下单环节结束")
 
     def __create_and_start_thread(self):

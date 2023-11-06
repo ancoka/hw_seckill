@@ -24,11 +24,11 @@ from huawei_thread import HuaWeiThread
 
 class HuaWei:
     projectPath = os.path.dirname(os.path.abspath(__file__))
-    logPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-    seleniumLogFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selenium.log")
-    baseProfilePath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles")
-    cookiesFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hw_cookies.txt")
-    configFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
+    logPath = os.path.join(projectPath, "logs")
+    seleniumLogFile = os.path.join(logPath, "selenium.log")
+    baseProfilePath = os.path.join(projectPath, "profiles")
+    cookiesFile = os.path.join(projectPath, "hw_cookies.txt")
+    configFile = os.path.join(projectPath, "config.ini")
     config = None
     browser = None
     isLogin = False
@@ -367,28 +367,33 @@ class HuaWei:
             self.browser.quit()
 
     def __waiting_count(self):
-        while self.isWaiting:
-            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂不售卖")(
-                    self.browser):
-                logger.info("【{}】倒计时未开始，等待中...", "暂不售卖")
-                time.sleep(120)
-                self.__refresh_product_page()
-            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂时缺货")(
-                    self.browser):
-                logger.info("【{}】倒计时未开始，等待中...", "暂时缺货")
-                time.sleep(120)
-                self.__refresh_product_page()
-            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "即将开始")(
-                    self.browser):
-                logger.info("倒计时即将开始")
-                self.__get_sec_kill_time()
-                if self.secKillTime is not None:
-                    self.__set_end_waiting()
-                    time.sleep(1)
-            else:
-                logger.info("当前可立即下单")
-                self.__set_end_countdown()
-                self.__set_buy_now()
+        times = 1
+        while self.isWaiting and times <= 3:
+            try:
+                if EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂不售卖")(
+                        self.browser):
+                    logger.info("【{}】倒计时未开始，等待中...", "暂不售卖")
+                    time.sleep(120)
+                    self.__refresh_product_page()
+                elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "暂时缺货")(
+                        self.browser):
+                    logger.info("【{}】倒计时未开始，等待中...", "暂时缺货")
+                    time.sleep(120)
+                    self.__refresh_product_page()
+                elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, "#pro-operation > a"), "即将开始")(
+                        self.browser):
+                    logger.info("倒计时即将开始")
+                    self.__get_sec_kill_time()
+                    if self.secKillTime is not None:
+                        self.__set_end_waiting()
+                        time.sleep(1)
+                else:
+                    logger.info("当前可立即下单")
+                    self.__set_end_countdown()
+                    self.__set_buy_now()
+            except NoSuchElementException:
+                time.sleep(1)
+                times += 1
 
     def __refresh_product_page(self):
         logger.info("开始刷新 {0} 产品详情页".format(self.config.get("product", "name")))

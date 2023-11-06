@@ -3,13 +3,9 @@
 import os
 import sys
 from datetime import datetime
-from selenium.common import WebDriverException
+from selenium.common import WebDriverException, NoSuchWindowException
 from huawei import HuaWei
 from loguru import logger
-
-LOGURU_FORMAT = ("<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-                 "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-                 "<cyan>{thread.name}</cyan>:<cyan>{thread.id}</cyan> - <level>{message}</level>")
 
 
 def main():
@@ -17,6 +13,8 @@ def main():
     try:
         huawei.start_process()
         huawei.stop_process()
+    except NoSuchWindowException:
+        logger.info("⃣已关闭浏览器窗口，程序自动退出")
     except WebDriverException as we:
         logger.error("程序执行异常：except: {}", we)
     finally:

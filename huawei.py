@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+from urllib.parse import unquote
 
 from selenium.common import StaleElementReferenceException, NoSuchElementException, TimeoutException, \
     ElementClickInterceptedException
@@ -125,24 +126,26 @@ class HuaWei:
 
     def __login(self):
         logger.info("开始登录华为账号")
-        self.__goto_login_page()
-        self.__do_login()
+        self.isLogin = self.__check_is_logged_in()
+        if not self.isLogin:
+            self.__goto_login_page()
+            self.__do_login()
 
-        loginTimes = 1
-        while not self.isLogin and loginTimes < 3:
-            logger.info("开始第 {} 次尝试登录华为账号", loginTimes)
-            loggedResult = self.__check_logged_result()
-            if loggedResult > 0:
-                self.isLogin = True
-            elif loggedResult == 0:
-                self.__login_security_verification()
-                self.__trust_browser()
-                self.isLogin = self.__current_is_login_page()
-            else:
-                self.isLogin = False
-            loginDesc = '成功' if self.isLogin else '失败'
-            logger.info("第 {} 次尝试登录华为账号，登录结果：{}", loginTimes, loginDesc)
-            loginTimes += 1
+            loginTimes = 1
+            while not self.isLogin and loginTimes < 3:
+                logger.info("开始第 {} 次尝试登录华为账号", loginTimes)
+                loggedResult = self.__check_logged_result()
+                if loggedResult > 0:
+                    self.isLogin = True
+                elif loggedResult == 0:
+                    self.__login_security_verification()
+                    self.__trust_browser()
+                    self.isLogin = self.__check_is_logged_in()
+                else:
+                    self.isLogin = False
+                loginDesc = '成功' if self.isLogin else '失败'
+                logger.info("第 {} 次尝试登录华为账号，登录结果：{}", loginTimes, loginDesc)
+                loginTimes += 1
 
         if not self.isLogin:
             logger.warning("登录华为账号失败，程序将在3秒后退出...")
@@ -338,19 +341,15 @@ class HuaWei:
         return isLoginPage
 
     def __check_is_logged_in(self):
-        self.isLogin = self.__current_is_login_page()
-        if self.isLogin:
-            logger.success("账号登录成功")
-            self.nickname = self.__get_logged_nickname()
-        else:
-            logger.warning("账号登录失败，请重试...")
+        nickname = self.__get_logged_nickname()
+        isLogged = not '游客' == nickname
+        return isLogged
 
     def __get_logged_nickname(self):
         nickname = '游客'
-        try:
-            nickname = self.driverWait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".r-1a7l8x0"))).text
-        except TimeoutException:
-            logger.warning("获取当前登录账号昵称超时")
+        for cookie in self.browser.get_cookies():
+            if cookie['name'] == 'displayName':
+                nickname = unquote(cookie['value'])
         return nickname
 
     def __visit_product_page(self):

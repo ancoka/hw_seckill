@@ -514,6 +514,7 @@ class HuaWei:
         if boxCtPopIsExists:
             self.__check_box_ct_pop_act_is_started()
             self.__check_box_ct_pop_product_is_not_buy()
+            self.__check_box_ct_pop_address_not_selected()
 
         return boxCtPopIsExists
 
@@ -555,8 +556,27 @@ class HuaWei:
                         button.click()
                         self.isStartBuying = True
             except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
-                logger.error("抱歉，没有抢到，再试试按钮未找到：except: {} element: {}", e,
-                             self.browser.page_source)
+                logger.error("抱歉，没有抢到，再试试按钮未找到：except: {} ", e)
+                pass
+
+    def __check_box_ct_pop_address_not_selected(self):
+        addressIsSelected = False
+        try:
+            activity_text = self.browser.find_element(By.CSS_SELECTOR, ".box-ct .box-cc .box-content").text
+            addressIsSelected = activity_text.find('请您选择收货地址') != -1
+        except (NoSuchElementException, StaleElementReferenceException):
+            pass
+
+        if addressIsSelected:
+            logger.warning("收获地址未完全加载")
+            try:
+                buttons = self.browser.find_elements(By.CSS_SELECTOR,
+                                                     '.box-ct .box-cc .box-content .box-button .box-ok')
+                for button in buttons:
+                    if '确定' == button.text:
+                        button.click()
+            except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
+                logger.error("收获地址未完全加载：except: {}", e)
                 pass
 
     def __check_iframe_box_pop_exists(self):
@@ -663,13 +683,29 @@ class HuaWei:
         clickSuccess = False
         try:
             self.__check_box_ct_pop_stage()
-            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit > span'), '提交订单')(self.browser):
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
                 self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
                 boxCtPopIsExists = self.__check_box_ct_pop_stage()
                 if boxCtPopIsExists:
                     logger.warning("已点击提交订单，提交订单不成功，重试中...")
                 else:
-                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains("payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
+                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(
+                            "payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
+                        clickSuccess = True
+                        logger.success("已点击提交订单，提交订单成功")
+                    else:
+                        pass
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
+                if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
+                    self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
+
+                self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
+                boxCtPopIsExists = self.__check_box_ct_pop_stage()
+                if boxCtPopIsExists:
+                    logger.warning("已点击提交订单，提交订单不成功，重试中...")
+                else:
+                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(
+                            "payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
                         clickSuccess = True
                         logger.success("已点击提交订单，提交订单成功")
                     else:

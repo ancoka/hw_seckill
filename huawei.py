@@ -191,7 +191,7 @@ class HuaWei:
         loginLink.click()
 
         try:
-            self.driverWait.until(EC.title_contains('华为帐号-登录'))
+            self.driverWait.until(EC.any_of(EC.title_contains('华为帐号-登录'), EC.title_contains('HUAWEI ID-Log in')))
             logger.info("已跳转登录页面")
             self.__get_current_page_type()
         except TimeoutException:

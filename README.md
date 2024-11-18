@@ -105,4 +105,7 @@
 
 ## 打赏
 码代码不易，如果对你有帮助欢迎star和打赏，谢谢支持！
-!["打赏"](assets/reward.jpg=300x300)
+
+<div align=left>
+  <img src="assets/reward.jpg" width=300 height=300  alt="打赏"/>
+</div>

@@ -24,4 +24,5 @@ html
 **/*.log
 hw_cookies.txt
 profiles/*
+__pycache__
 

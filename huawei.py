@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
 import json
-import os.path
 import threading
 import time
 from datetime import datetime
@@ -14,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
+import constants
 from browser.browser_factory import BrowserFactory
 from config import Config
 from huawei_thread import HuaWeiThread
@@ -21,49 +21,27 @@ from tools import utils, time_utils
 
 
 class HuaWei:
-    project_path = os.path.dirname(os.path.abspath(__file__))
-    log_path = os.path.join(project_path, "logs")
-    selenium_log_file = os.path.join(log_path, "selenium.log")
-    base_profile_path = os.path.join(project_path, "profiles")
-    cookies_file = os.path.join(project_path, "hw_cookies.txt")
-    config_file = os.path.join(project_path, "config.ini")
     config = None
     browser = None
     browser_type = None
     driver_wait = None
-
-    isLogin = False
-    isWaiting = True
-    isCountdown = True
-    isStartBuying = False
-    isCanSubmitOrder = False
-    isBuyNow = False
-    secKillTime = None
+    is_login = False
+    is_waiting = True
+    is_countdown = True
+    is_start_buying = False
+    is_can_submit_order = False
+    is_buy_now = False
+    sec_kill_time = None
     hw_server_timestamp = None
     local_timestamp = None
-    tipMsgs = [
-        '抱歉，已售完，下次再来',
-        '抱歉，没有抢到',
-        '抱歉，仅限预约用户购买',
-        '抢购活动未开始，看看其他商品吧',
-        '本次发售商品数量有限，您已超过购买上限，请勿重复抢购，将机会留给其他人吧',
-        '抱歉，您不符合购买条件',
-        '登记排队，有货时通知您',
-        '抱歉，库存不足',
-        '您已超过购买上限，本场活动最多还能买',
-        '当前排队人数过多，是否继续排队等待？',
-        '排队中',
-        '秒杀活动已结束',
-        '秒杀火爆<br/>该秒杀商品已售罄',
-    ]
 
     def __init__(self, profile_path=None):
-        self.config = Config(self.config_file)
-        self.browser_type = self.config.get("browser", "type", 'chrome')
+        self.config = Config(constants.CONFIG_FILE)
+        self.browser_type = self.config.get("browser", "type", constants.DEFAULT_BROWSER_TYPE)
         self.__pre_browser_setting()
 
         if profile_path is None or profile_path == '':
-            profile_path = utils.get_profile_path(self.base_profile_path, self.browser_type, 1)
+            profile_path = utils.get_profile_path(constants.BASE_PROFILE_PATH, self.browser_type, 1)
 
         self.__browser_setting(profile_path)
         server_timestamp, local_timestamp, ms_diff = time_utils.local_hw_time_diff()
@@ -76,7 +54,7 @@ class HuaWei:
         logger.info("开启抢购华为手机")
         self.__visit_official_website()
         self.__login()
-        if self.isLogin:
+        if self.is_login:
             self.__visit_product_page()
             self.__waiting_count()
             self.__choose_product()
@@ -99,17 +77,17 @@ class HuaWei:
         self.__start_buying()
 
     def __pre_browser_setting(self):
-        utils.create_directory(self.log_path)
+        utils.create_directory(constants.LOG_PATH)
 
-        threadCount = max(int(self.config.get("process", "thread", '1')), 1)
+        threadCount = max(int(self.config.get("process", "thread", constants.DEFAULT_THREAD_NUM)), 1)
         for i in range(1, threadCount + 1):
-            profile_path = utils.get_profile_path(self.base_profile_path, self.browser_type, i)
+            profile_path = utils.get_profile_path(constants.BASE_PROFILE_PATH, self.browser_type, i)
             utils.create_directory(profile_path)
 
     def __browser_setting(self, profile_path):
         logger.info("开始设置浏览器参数")
         self.browser = (BrowserFactory.build(self.browser_type)
-                        .setting(self.config, self.selenium_log_file, profile_path))
+                        .setting(self.config, constants.SELENIUM_LOG_FILE, profile_path))
         self.browser.maximize_window()
 
     def __visit_official_website(self):
@@ -126,28 +104,28 @@ class HuaWei:
 
     def __login(self):
         logger.info("开始登录华为账号")
-        self.isLogin = self.__check_is_logged_in()
-        if not self.isLogin:
+        self.is_login = self.__check_is_logged_in()
+        if not self.is_login:
             self.__goto_login_page()
             self.__do_login()
 
             loginTimes = 1
-            while not self.isLogin and loginTimes < 3:
+            while not self.is_login and loginTimes < constants.RETRY_TIMES:
                 logger.info("开始第 {} 次尝试登录华为账号", loginTimes)
                 loggedResult = self.__check_logged_result()
                 if loggedResult > 0:
-                    self.isLogin = True
+                    self.is_login = True
                 elif loggedResult == 0:
                     self.__login_security_verification()
                     self.__trust_browser()
-                    self.isLogin = self.__check_is_logged_in()
+                    self.is_login = self.__check_is_logged_in()
                 else:
-                    self.isLogin = False
-                loginDesc = '成功' if self.isLogin else '失败'
+                    self.is_login = False
+                loginDesc = '成功' if self.is_login else '失败'
                 logger.info("第 {} 次尝试登录华为账号，登录结果：{}", loginTimes, loginDesc)
                 loginTimes += 1
 
-        if not self.isLogin:
+        if not self.is_login:
             logger.warning("登录华为账号失败，程序将在3秒后退出...")
             time.sleep(3)
             exit()
@@ -160,12 +138,12 @@ class HuaWei:
 
     def __cookies_save(self):
         cookies = self.browser.get_cookies()
-        with open(self.cookies_file, 'w') as f:
+        with open(constants.COOKIES_FILE, 'w') as f:
             f.write(json.dumps(cookies))
             f.close()
 
     def __load_cookies(self):
-        with open(self.cookies_file, 'r') as f:
+        with open(constants.COOKIES_FILE, 'r') as f:
             cookies = json.load(f)
             for cookie in cookies:
                 self.browser.add_cookie(cookie)
@@ -174,7 +152,7 @@ class HuaWei:
     def __goto_login_page(self):
         loginLink = None
         times = 1
-        while loginLink is None and times < 3:
+        while loginLink is None and times < constants.RETRY_TIMES:
             menu_links = self.driver_wait.until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.css-901oao.r-1a7l8x0.r-1enofrn.r-ueyrd6.r-1pn2ns4.r-gy4na3')))
             for menu_link in menu_links:
@@ -334,7 +312,7 @@ class HuaWei:
 
     def __current_is_login_page(self):
         try:
-            isLoginPage = self.driver_wait.until_not(EC.url_contains("id1.cloud.huawei.com/CAS/portal/loginAuth.html"))
+            isLoginPage = self.driver_wait.until_not(EC.url_contains(constants.LOGIN_PAGE_URL))
         except TimeoutException:
             isLoginPage = True
             pass
@@ -356,7 +334,7 @@ class HuaWei:
         currentUrl = self.browser.current_url
         logger.info("开始进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
         self.browser.get(
-            "https://www.vmall.com/product/comdetail/index.html?prdId={0}".format(self.config.get("product", "id")))
+            "https://{0}?prdId={1}".format(constants.PRODUCT_PAGE_URL, self.config.get("product", "id")))
         try:
             self.driver_wait.until(EC.url_changes(currentUrl))
             logger.info("已进入华为 {0} 产品详情页".format(self.config.get("product", "name")))
@@ -368,7 +346,7 @@ class HuaWei:
 
     def __waiting_count(self):
         times = 1
-        while self.isWaiting and times <= 3:
+        while self.is_waiting and times <= constants.RETRY_TIMES:
             try:
                 if EC.text_to_be_present_in_element((By.ID, "prd-botnav-rightbtn"), "暂不售卖")(
                         self.browser):
@@ -384,7 +362,7 @@ class HuaWei:
                         self.browser):
                     logger.info("倒计时即将开始")
                     self.__get_sec_kill_time()
-                    if self.secKillTime is not None:
+                    if self.sec_kill_time is not None:
                         self.__set_end_waiting()
                         time.sleep(1)
                 else:
@@ -431,10 +409,10 @@ class HuaWei:
         logger.info("选择手机单品规格完成，颜色：{0} 版本：{1}".format(sku_color, sku_version))
 
     def __countdown(self):
-        while self.isCountdown:
-            countdownMsDiff = time_utils.calc_countdown_ms_diff(self.secKillTime,
+        while self.is_countdown:
+            countdownMsDiff = time_utils.calc_countdown_ms_diff(self.sec_kill_time,
                                                                 self.local_timestamp - self.hw_server_timestamp)
-            countdownTimes = time_utils.calc_countdown_times(self.secKillTime,
+            countdownTimes = time_utils.calc_countdown_times(self.sec_kill_time,
                                                              self.local_timestamp - self.hw_server_timestamp)
 
             if countdownMsDiff > 120000:
@@ -447,10 +425,10 @@ class HuaWei:
         logger.info("进入抢购活动最后排队下单环节")
         self.__create_and_start_thread()
         clickTimes = 1
-        while self.isStartBuying:
-            countdownMsDiff = time_utils.calc_countdown_ms_diff(self.secKillTime,
+        while self.is_start_buying:
+            countdownMsDiff = time_utils.calc_countdown_ms_diff(self.sec_kill_time,
                                                                 self.local_timestamp - self.hw_server_timestamp)
-            countdown_times = time_utils.calc_countdown_times(self.secKillTime,
+            countdown_times = time_utils.calc_countdown_times(self.sec_kill_time,
                                                               self.local_timestamp - self.hw_server_timestamp)
             if countdownMsDiff > 1000:
                 logger.info("距离抢购活动最后下单环节开始还剩：{}", time_utils.format_countdown_time(countdown_times))
@@ -471,12 +449,12 @@ class HuaWei:
         logger.info("抢购活动最后排队下单环节结束")
 
     def __create_and_start_thread(self):
-        threadCount = max(int(self.config.get("process", "thread", '1')), 1)
+        threadCount = max(int(self.config.get("process", "thread", constants.DEFAULT_THREAD_NUM)), 1)
         currentThread = threading.current_thread()
         if currentThread is threading.main_thread() and threadCount > 1:
             logger.info("开始创建多线程，需要创建线程数：{}", threadCount)
             for i in range(2, threadCount + 1):
-                profile_path = utils.get_profile_path(self.base_profile_path, self.browser_type, i)
+                profile_path = utils.get_profile_path(constants.BASE_PROFILE_PATH, self.browser_type, i)
                 t = HuaWeiThread(i, HuaWei(profile_path))
                 t.start()
         else:
@@ -484,7 +462,7 @@ class HuaWei:
             pass
 
     def __do_start_buying(self):
-        if not self.isCanSubmitOrder:
+        if not self.is_can_submit_order:
             try:
                 buttons = self.browser.find_elements(By.CSS_SELECTOR, '#prd-botnav-rightbtn')
                 orderBtn = None
@@ -551,7 +529,7 @@ class HuaWei:
                 for button in buttons:
                     if '再试试' == button.text:
                         button.click()
-                        self.isStartBuying = True
+                        self.is_start_buying = True
             except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
                 logger.error("抱歉，没有抢到，再试试按钮未找到：except: {} ", e)
                 pass
@@ -588,7 +566,7 @@ class HuaWei:
         return iframeBoxExists
 
     def __check_can_submit_order(self):
-        if self.isCanSubmitOrder:
+        if self.is_can_submit_order:
             pass
         else:
             logger.info("检查是否可以进行下单操作")
@@ -599,10 +577,11 @@ class HuaWei:
             if window_size <= 1:
                 iframeBoxExists = self.__check_iframe_box_pop_exists()
                 if iframeBoxExists:
-                    iframe = self.browser.find_element(By.CSS_SELECTOR, '#iframeBox #queueIframe')
+                    # iframe = self.browser.find_element(By.CSS_SELECTOR, '#iframeBox #queueIframe')
+                    iframe = self.browser.find_element(By.CSS_SELECTOR, '#RushBuyQueue')
                     self.browser.switch_to.frame(iframe)
                     iframeText = self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue .queue-tips').text
-                    for tipMsg in self.tipMsgs:
+                    for tipMsg in constants.TIP_MSGS:
                         if iframeText.find(tipMsg) != -1:
                             if tipMsg == '排队中':
                                 logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
@@ -650,7 +629,7 @@ class HuaWei:
                 self.browser.switch_to.window(new_tab)
 
     def __buy_now(self):
-        if self.isBuyNow:
+        if self.is_buy_now:
             logger.info("开始立即购买")
             try:
                 buttons = self.driver_wait.until(
@@ -670,12 +649,12 @@ class HuaWei:
             logger.info("结束立即购买")
 
     def __submit_order(self):
-        if self.isCanSubmitOrder:
+        if self.is_can_submit_order:
             currentUrl = self.browser.current_url
-            while self.isCanSubmitOrder:
+            while self.is_can_submit_order:
                 clickSuccess = self.__click_submit_order(currentUrl)
                 if clickSuccess:
-                    self.isCanSubmitOrder = False
+                    self.is_can_submit_order = False
                 time.sleep(float(self.config.get('process', 'interval', '0.001')))
 
     def __click_submit_order(self, currentUrl):
@@ -684,32 +663,11 @@ class HuaWei:
         try:
             self.__check_box_ct_pop_stage()
             if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
-                self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
-                boxCtPopIsExists = self.__check_box_ct_pop_stage()
-                if boxCtPopIsExists:
-                    logger.warning("已点击提交订单，提交订单不成功，重试中...")
-                else:
-                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(
-                            "payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
-                        clickSuccess = True
-                        logger.success("已点击提交订单，提交订单成功")
-                    else:
-                        pass
+                clickSuccess = self.__click_submit_order2(currentUrl)
             elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
                 if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
                     self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
-
-                self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
-                boxCtPopIsExists = self.__check_box_ct_pop_stage()
-                if boxCtPopIsExists:
-                    logger.warning("已点击提交订单，提交订单不成功，重试中...")
-                else:
-                    if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(
-                            "payment.vmall.com/cashier/web/pcIndex.htm")(self.browser):
-                        clickSuccess = True
-                        logger.success("已点击提交订单，提交订单成功")
-                    else:
-                        pass
+                clickSuccess = self.__click_submit_order2(currentUrl)
             else:
                 pass
         except NoSuchElementException as noe:
@@ -721,51 +679,55 @@ class HuaWei:
             pass
         return clickSuccess
 
+    def __click_submit_order2(self, currentUrl):
+        clickSuccess = False
+        self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
+        boxCtPopIsExists = self.__check_box_ct_pop_stage()
+        if boxCtPopIsExists:
+            logger.warning("已点击提交订单，提交订单不成功，重试中...")
+        else:
+            if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(constants.PAYMENT_PAGE_URL)(self.browser):
+                clickSuccess = True
+                logger.success("已点击提交订单，提交订单成功")
+            else:
+                pass
+        return clickSuccess
+
     def __set_end_countdown(self):
-        self.isWaiting = False
-        self.isCountdown = False
-        self.isStartBuying = True
+        self.is_waiting = False
+        self.is_countdown = False
+        self.is_start_buying = True
 
     def __set_end_start_buying(self):
-        self.isStartBuying = False
-        self.isCanSubmitOrder = True
+        self.is_start_buying = False
+        self.is_can_submit_order = True
 
     def __set_end_waiting(self):
-        self.isWaiting = False
-        self.isCountdown = True
+        self.is_waiting = False
+        self.is_countdown = True
 
     def __set_buy_now(self):
-        self.isStartBuying = False
-        self.isBuyNow = True
+        self.is_start_buying = False
+        self.is_buy_now = True
 
     def __get_current_page_type(self):
         currentUrl = self.browser.current_url
-        if currentUrl.find('www.vmall.com/index.html') != -1:
-            pageType = 'index'
-        elif currentUrl.find('id1.cloud.huawei.com/CAS/portal/loginAuth.html') != -1:
-            pageType = 'login'
-        elif currentUrl.find("www.vmall.com/product/comdetail/index.html?prdId={0}".format(
-                self.config.get("product", "id", ""))) != -1:
-            pageType = 'product'
-        elif currentUrl.find("www.vmall.com/order/nowConfirmcart") != -1:
-            pageType = 'order'
-        elif currentUrl.find("payment.vmall.com/cashier/web/pcIndex.htm") != -1:
-            pageType = 'payment'
-        else:
-            pageType = 'unknown'
-            pass
-        logger.info("当前所在页面类型：{0} 地址：{1}".format(pageType, currentUrl))
-        return pageType
+        pageName = '未知页面'
+        for page in constants.PAGES:
+            if currentUrl.find(page.get("url")) != -1:
+                pageName = page.get("pageDesc")
+                break
+        logger.info("当前所在页面类型：{0} 地址：{1}".format(pageName, currentUrl))
 
     def __get_sec_kill_time(self):
         logger.info("开始获取抢购开始时间")
         tryTimes = 1
-        while self.secKillTime is None and tryTimes < 3:
+        while self.sec_kill_time is None and tryTimes < constants.RETRY_TIMES:
             try:
                 countdownStr = self.browser.find_element(By.CSS_SELECTOR, "#prd-detail  .css-901oao.r-jwli3a.r-1b43r93.r-13uqrnb.r-16dba41.r-oxtfae.r-hjklzo.r-6dt33c")
                 countdownStr = datetime.now().strftime("%Y年") + countdownStr.text[5:]
-                self.secKillTime = datetime.strptime(countdownStr, "%Y年%m月%d日 %H:%M")
-                logger.info("抢购开始时间为：[{}]", self.secKillTime)
+                self.sec_kill_time = datetime.strptime(countdownStr, "%Y年%m月%d日 %H:%M")
+                logger.info("抢购开始时间为：[{}]", self.sec_kill_time)
             except (StaleElementReferenceException, NoSuchElementException):
                 pass
             tryTimes += 1

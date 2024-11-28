@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
 import os
+import signal
+
 from selenium.common import WebDriverException, NoSuchWindowException
+
+import constants
 from huawei import HuaWei
 from loguru import logger
 
@@ -17,9 +21,9 @@ def main():
         logger.info("已关闭浏览器窗口，程序自动退出")
     except WebDriverException as we:
         logger.error("程序执行异常：except: {}", we)
-    # finally:
-    #     if os.path.exists(huawei.cookies_file):
-    #         os.remove(huawei.cookies_file)
+    finally:
+        if os.path.exists(constants.COOKIES_FILE):
+            os.remove(constants.COOKIES_FILE)
 
 
 if __name__ == '__main__':

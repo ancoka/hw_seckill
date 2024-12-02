@@ -192,9 +192,10 @@ class HuaWei:
         loggedResult = 0
         isLoginPage = self.__current_is_login_page()
         isNeedVerificationCode = self.__check_is_need_verification_code()
+        isNeedVerificationDeviceCode = self.__check_is_need_verification_device_code()
         if not isLoginPage:
             loggedResult = 1
-        elif isLoginPage and not isNeedVerificationCode:
+        elif isLoginPage and not isNeedVerificationCode and not isNeedVerificationDeviceCode:
             loggedResult = - 1
         else:
             pass
@@ -206,6 +207,12 @@ class HuaWei:
             logger.info("等待进行拼图验证中......")
             time.sleep(5)
             isNeedJigsawVerification = self.__check_is_need_jigsaw_verification()
+
+        isNeedVerificationDeviceCode = self.__check_is_need_verification_device_code()
+        while isNeedVerificationDeviceCode:
+            logger.info("等待进行设备验证码验证中......")
+            time.sleep(5)
+            isNeedVerificationDeviceCode = self.__check_is_need_verification_device_code()
 
         isNeedVerificationCode = self.__check_is_need_verification_code()
         if isNeedVerificationCode:
@@ -260,6 +267,21 @@ class HuaWei:
             pass
 
         logger.info("检查是否需要获取验证码，检查结果：{}", "需要" if isNeedVerificationCode else "不需要")
+        return isNeedVerificationCode
+
+    def __check_is_need_verification_device_code(self):
+        logger.info("检查是否需要获取验证码")
+        isNeedVerificationCode = False
+
+        try:
+            target = self.browser.find_element(
+                By.CSS_SELECTOR, ".hwid-sixInputArea-line")
+            isNeedVerificationCode = True if target else False
+        except:
+            pass
+
+        logger.info("检查是否需要设备验证码，检查结果：{}",
+                    "需要" if isNeedVerificationCode else "不需要")
         return isNeedVerificationCode
 
     def __check_is_input_verification_code(self):

@@ -27,7 +27,7 @@ class EdgeBrowser(Browser):
         options.add_argument('--ignore-ssl-errors')
         options.add_argument('--ignore-ssl-error')
         options.add_argument('--logs-level=3')
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--no-sandbox')

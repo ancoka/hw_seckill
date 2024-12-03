@@ -130,24 +130,19 @@ class HuaWei:
             time.sleep(3)
             exit()
 
-        self.__cookies_save()
-
+        utils.write_cookies(self.browser.get_cookies())
         nickname = self.__get_logged_nickname()
         logger.success("当前登录账号昵称为：{0}".format(nickname))
         logger.info("结束登录华为账号")
 
-    def __cookies_save(self):
-        cookies = self.browser.get_cookies()
-        with open(constants.COOKIES_FILE, 'w') as f:
-            f.write(json.dumps(cookies))
-            f.close()
-
     def __load_cookies(self):
-        with open(constants.COOKIES_FILE, 'r') as f:
-            cookies = json.load(f)
+        cookies = utils.read_cookies()
+        if cookies is not None:
             for cookie in cookies:
                 self.browser.add_cookie(cookie)
-            f.close()
+        else:
+            logger.warning("未读取到 Cookie 数据")
+            exit()
 
     def __goto_login_page(self):
         loginLink = None
@@ -464,7 +459,7 @@ class HuaWei:
     def __do_start_buying(self):
         if not self.is_can_submit_order:
             try:
-                buttons = self.browser.find_elements(By.CSS_SELECTOR, '#prd-botnav-rightbtn')
+                buttons = self.browser.find_elements(By.ID, 'prd-botnav-rightbtn')
                 orderBtn = None
                 for button in buttons:
                     if '立即购买' == button.text:
@@ -577,7 +572,6 @@ class HuaWei:
             if window_size <= 1:
                 iframeBoxExists = self.__check_iframe_box_pop_exists()
                 if iframeBoxExists:
-                    # iframe = self.browser.find_element(By.CSS_SELECTOR, '#iframeBox #queueIframe')
                     iframe = self.browser.find_element(By.CSS_SELECTOR, '#RushBuyQueue')
                     self.browser.switch_to.frame(iframe)
                     iframeText = self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue .queue-tips').text
@@ -633,7 +627,7 @@ class HuaWei:
             logger.info("开始立即购买")
             try:
                 buttons = self.driver_wait.until(
-                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#prd-botnav-rightbtn')))
+                    EC.presence_of_all_elements_located((By.ID, 'prd-botnav-rightbtn')))
                 orderBtn = None
                 for button in buttons:
                     if '立即购买' == button.text:
@@ -650,6 +644,7 @@ class HuaWei:
 
     def __submit_order(self):
         if self.is_can_submit_order:
+            self.__get_current_page_type()
             currentUrl = self.browser.current_url
             while self.is_can_submit_order:
                 clickSuccess = self.__click_submit_order(currentUrl)

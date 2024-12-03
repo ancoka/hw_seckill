@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 # !/usr/bin/python
+import json
 import locale
 import os
 import sys
+
+import constants
 
 
 def get_profile_path(base_profile_path, browser_type, serial_no=1):
@@ -20,3 +23,17 @@ def set_locale_chinese():
     if sys.platform.startswith('win'):
         locale.setlocale(locale.LC_ALL, 'en')
         locale.setlocale(locale.LC_CTYPE, 'chinese')
+
+
+def write_cookies(cookies):
+    with open(constants.COOKIES_FILE, 'w') as f:
+        f.write(json.dumps(cookies))
+        f.close()
+
+
+def read_cookies():
+    cookies = None
+    with open(constants.COOKIES_FILE, 'r') as f:
+        cookies = json.load(f)
+        f.close()
+    return cookies

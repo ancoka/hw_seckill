@@ -15,12 +15,15 @@ INDEX_PAGE_URL = "www.vmall.com/index.html"
 LOGIN_PAGE_URL = "id1.cloud.huawei.com/CAS/portal/loginAuth.html"
 PRODUCT_PAGE_URL = "www.vmall.com/product/comdetail/index.html"
 ORDER_PAGE_URL = "www.vmall.com/order/nowConfirmcart"
+RUSH_ORDER_PAGE_URL = "www.vmall.com/order/rush/confirm"
 PAYMENT_PAGE_URL = "payment.vmall.com/cashier/web/pcIndex.htm"
+
 PAGES = [
     {'page': 'index', 'pageDesc': '首页', 'url': INDEX_PAGE_URL},
     {'page': 'login', 'pageDesc': '登录页', 'url': LOGIN_PAGE_URL},
     {'page': 'product', 'pageDesc': '产品页', 'url': PRODUCT_PAGE_URL},
     {'page': 'order', 'pageDesc': '下单页', 'url': ORDER_PAGE_URL},
+    {'page': 'rushorder', 'pageDesc': '抢购下单页', 'url': RUSH_ORDER_PAGE_URL},
     {'page': 'payment', 'pageDesc': '付款页', 'url': PAYMENT_PAGE_URL}
 ]
 

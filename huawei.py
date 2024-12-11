@@ -589,60 +589,65 @@ class HuaWei:
             logger.info("检查是否可以进行下单操作")
             self.__check_box_ct_pop_stage()
             self.__get_current_page_type()
-            window_size = len(self.browser.window_handles)
-            checkResult = 1
-            if window_size <= 1:
-                iframeBoxExists = self.__check_iframe_box_pop_exists()
-                if iframeBoxExists:
-                    iframe = self.browser.find_element(By.CSS_SELECTOR, '#RushBuyQueue')
-                    self.browser.switch_to.frame(iframe)
-                    iframeText = self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue .queue-tips').text
-                    for tipMsg in constants.TIP_MSGS:
-                        if iframeText.find(tipMsg) != -1:
-                            if tipMsg == '排队中':
-                                logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
-                                checkResult = 0
-                                break
-                            elif tipMsg == '当前排队人数过多，是否继续排队等待？':
-                                logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
-                                checkResult = 0
-                                try:
-                                    buttons = self.browser.find_elements(By.CSS_SELECTOR,
-                                                                         '.ecWeb-queue .queue-btn .btn-ok')
-                                    waitBtn = None
-                                    for button in buttons:
-                                        if '继续等待' == button.text:
-                                            waitBtn = button
 
-                                    if waitBtn is not None:
-                                        waitBtn.click()
-                                except (NoSuchElementException, ElementClickInterceptedException,
-                                        StaleElementReferenceException) as e:
-                                    logger.error("检查是否可以进行下单操作，继续等待按钮未找到：except: {}", e)
-                                    pass
-                                break
-                            else:
-                                logger.warning("检查是否可以进行下单操作，当前提醒内容：【{}】", tipMsg)
-                                checkResult = -1
-                                break
-                        else:
-                            checkResult = 0
-                            pass
-                    self.browser.switch_to.default_content()
-                else:
-                    iframeText = '未开始'
-                    checkResult = -2
-                    pass
-            else:
-                iframeText = '待提交订单'
-                pass
-            checkResultDict = {-2: '活动未开始', -1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
-            logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
-                        checkResultDict[checkResult])
-            if checkResult == 1:
+            isOrderPage = self.__check_is_order_page()
+            if isOrderPage:
                 self.__set_end_start_buying()
-                new_tab = self.browser.window_handles[-1]
-                self.browser.switch_to.window(new_tab)
+            else:
+                window_size = len(self.browser.window_handles)
+                checkResult = 1
+                if window_size <= 1:
+                    iframeBoxExists = self.__check_iframe_box_pop_exists()
+                    if iframeBoxExists:
+                        iframe = self.browser.find_element(By.CSS_SELECTOR, '#RushBuyQueue')
+                        self.browser.switch_to.frame(iframe)
+                        iframeText = self.browser.find_element(By.CSS_SELECTOR, '.ecWeb-queue .queue-tips').text
+                        for tipMsg in constants.TIP_MSGS:
+                            if iframeText.find(tipMsg) != -1:
+                                if tipMsg == '排队中':
+                                    logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
+                                    checkResult = 0
+                                    break
+                                elif tipMsg == '当前排队人数过多，是否继续排队等待？':
+                                    logger.warning("检查是否可以进行下单操作，排队状态：【{}】", tipMsg)
+                                    checkResult = 0
+                                    try:
+                                        buttons = self.browser.find_elements(By.CSS_SELECTOR,
+                                                                             '.ecWeb-queue .queue-btn .btn-ok')
+                                        waitBtn = None
+                                        for button in buttons:
+                                            if '继续等待' == button.text:
+                                                waitBtn = button
+
+                                        if waitBtn is not None:
+                                            waitBtn.click()
+                                    except (NoSuchElementException, ElementClickInterceptedException,
+                                            StaleElementReferenceException) as e:
+                                        logger.error("检查是否可以进行下单操作，继续等待按钮未找到：except: {}", e)
+                                        pass
+                                    break
+                                else:
+                                    logger.warning("检查是否可以进行下单操作，当前提醒内容：【{}】", tipMsg)
+                                    checkResult = -1
+                                    break
+                            else:
+                                checkResult = 0
+                                pass
+                        self.browser.switch_to.default_content()
+                    else:
+                        iframeText = '未开始'
+                        checkResult = -2
+                        pass
+                else:
+                    iframeText = '待提交订单'
+                    pass
+                checkResultDict = {-2: '活动未开始', -1: '抢购结束', 0: '排队中', 1: '已排队，待提交订单'}
+                logger.info("检查是否可以进行下单操作，当前提醒内容：【{}】, 检查结果：【{}】", iframeText,
+                            checkResultDict[checkResult])
+                if checkResult == 1:
+                    self.__set_end_start_buying()
+                    new_tab = self.browser.window_handles[-1]
+                    self.browser.switch_to.window(new_tab)
 
     def __buy_now(self):
         if self.is_buy_now:
@@ -735,6 +740,10 @@ class HuaWei:
                 pageName = page.get("pageDesc")
                 break
         logger.info("当前所在页面类型：{0} 地址：{1}".format(pageName, currentUrl))
+
+    def __check_is_order_page(self):
+        currentUrl = self.browser.current_url
+        return currentUrl.find(constants.ORDER_PAGE_URL) != -1 or currentUrl.find(constants.RUSH_ORDER_PAGE_URL) != -1
 
     def __get_sec_kill_time(self):
         logger.info("开始获取抢购开始时间")

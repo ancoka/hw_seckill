@@ -646,8 +646,6 @@ class HuaWei:
                             checkResultDict[checkResult])
                 if checkResult == 1:
                     self.__set_end_start_buying()
-                    new_tab = self.browser.window_handles[-1]
-                    self.browser.switch_to.window(new_tab)
 
     def __buy_now(self):
         if self.is_buy_now:
@@ -661,10 +659,25 @@ class HuaWei:
                         orderBtn = button
                 if orderBtn is not None:
                     orderBtn.click()
-                    new_tab = self.browser.window_handles[-1]
-                    self.browser.switch_to.window(new_tab)
+
+                    isOrderPage = False
+                    times = 0
+                    while not isOrderPage:
+                        if times > 1000:
+                            break
+                        isOrderPage = self.__check_is_order_page()
+                        time.sleep(0.01)
+                        times += 1
+
                     currentUrl = self.browser.current_url
-                    self.__click_submit_order(currentUrl)
+                    if isOrderPage and currentUrl.find(constants.RUSH_ORDER_PAGE_URL):
+                        self.__click_submit_order(currentUrl)
+                    elif isOrderPage and currentUrl.find(constants.ORDER_PAGE_URL):
+                        new_tab = self.browser.window_handles[-1]
+                        self.browser.switch_to.window(new_tab)
+                        self.__click_submit_order(currentUrl)
+                    else:
+                        logger.error("进入下单页面失败")
             except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
                 logger.info("未找到【立即购买】按钮或按钮不可点击； except:{}", e)
             logger.info("结束立即购买")

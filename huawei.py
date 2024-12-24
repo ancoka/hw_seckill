@@ -20,6 +20,19 @@ from huawei_thread import HuaWeiThread
 from tools import utils, time_utils
 
 
+def title_contains_any(titles: list) -> EC.Callable[[EC.AnyDriver], bool]:
+    """An expectation for checking that the title contains any of the case-sensitive
+    substrings from the given list.
+
+    titles is a list of fragments of title expected.
+    Returns True if the title matches any fragment in the list, False otherwise.
+    """
+
+    def _predicate(driver):
+        return any(title in driver.title for title in titles)
+
+    return _predicate
+
 class HuaWei:
     config = None
     browser = None
@@ -34,6 +47,7 @@ class HuaWei:
     sec_kill_time = None
     hw_server_timestamp = None
     local_timestamp = None
+    thread_browsers = []
 
     def __init__(self, profile_path=None):
         self.config = Config(constants.CONFIG_FILE)
@@ -56,8 +70,8 @@ class HuaWei:
         self.__login()
         if self.is_login:
             self.__visit_product_page()
-            self.__waiting_count()
             self.__choose_product()
+            self.__waiting_count()
             self.__countdown()
             self.__start_buying()
             self.__buy_now()
@@ -164,7 +178,7 @@ class HuaWei:
         loginLink.click()
 
         try:
-            self.driver_wait.until(EC.title_contains('华为账号-登录'))
+            self.driver_wait.until(title_contains_any(['华为账号-登录', 'HUAWEI ID-Log in']))
             logger.info("已跳转登录页面")
             self.__get_current_page_type()
         except TimeoutException:
@@ -370,11 +384,13 @@ class HuaWei:
                     logger.info("【{}】倒计时未开始，等待中...", "暂不售卖")
                     time.sleep(120)
                     self.__refresh_product_page()
+                    self.__choose_product()
                 elif EC.text_to_be_present_in_element((By.ID, "prd-botnav-rightbtn"), "暂时缺货")(
                         self.browser):
                     logger.info("【{}】倒计时未开始，等待中...", "暂时缺货")
                     time.sleep(120)
                     self.__refresh_product_page()
+                    self.__choose_product()
                 elif EC.text_to_be_present_in_element((By.ID, "prd-botnav-rightbtn"), "开始")(
                         self.browser):
                     logger.info("倒计时即将开始")
@@ -426,15 +442,29 @@ class HuaWei:
         logger.info("选择手机单品规格完成，颜色：{0} 版本：{1}".format(sku_color, sku_version))
 
     def __countdown(self):
+        waitTimes = 1
         while self.is_countdown:
             countdownMsDiff = time_utils.calc_countdown_ms_diff(self.sec_kill_time,
                                                                 self.local_timestamp - self.hw_server_timestamp)
             countdownTimes = time_utils.calc_countdown_times(self.sec_kill_time,
                                                              self.local_timestamp - self.hw_server_timestamp)
 
-            if countdownMsDiff > 120000:
+            if countdownMsDiff > 180000:
                 logger.info("距离抢购开始还剩：{}", time_utils.format_countdown_time(countdownTimes))
-                time.sleep(5)
+                time.sleep(10)
+                waitTimes += 1
+                if waitTimes > 10:
+                    self.__refresh_product_page()
+                    self.__choose_product()
+                    waitTimes = 1
+
+                self.is_login = self.__check_is_logged_in()
+                if not self.is_login:
+                    self.__login()
+
+                    if self.is_login:
+                        self.__visit_product_page()
+                        self.__choose_product()
             else:
                 self.__set_end_countdown()
 
@@ -450,6 +480,7 @@ class HuaWei:
             if countdownMsDiff > 1000:
                 logger.info("距离抢购活动最后下单环节开始还剩：{}", time_utils.format_countdown_time(countdown_times))
                 time.sleep(1)
+
             elif countdownMsDiff > 100:
                 logger.info("距离抢购活动最后下单环节开始还剩：{}", time_utils.format_countdown_time(countdown_times))
                 time.sleep(0.1)
@@ -473,7 +504,9 @@ class HuaWei:
             for i in range(2, threadCount + 1):
                 profile_path = utils.get_profile_path(constants.BASE_PROFILE_PATH, self.browser_type, i)
                 t = HuaWeiThread(i, HuaWei(profile_path))
+                t.setDaemon(True)
                 t.start()
+                self.thread_browsers.append(t.huawei.browser)
         else:
             logger.warning("非主线程或配置线程数不大于1，无需创建多线程")
             pass
@@ -697,14 +730,24 @@ class HuaWei:
         clickSuccess = False
         try:
             self.__check_box_ct_pop_stage()
-            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
-                clickSuccess = self.__click_submit_order2(currentUrl)
-            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
-                if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
-                    self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
-                clickSuccess = self.__click_submit_order2(currentUrl)
+            self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
+            # if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
+            #     clickSuccess = self.__click_submit_order2(currentUrl)
+            # elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
+            #     if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
+            #         self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
+            #     clickSuccess = self.__click_submit_order2(currentUrl)
+            # else:
+            #     pass
+            boxCtPopIsExists = self.__check_box_ct_pop_stage()
+            if boxCtPopIsExists:
+                logger.warning("已点击提交订单，提交订单不成功，重试中...")
             else:
-                pass
+                if EC.url_changes(currentUrl)(self.browser) and EC.url_contains(constants.PAYMENT_PAGE_URL)(self.browser):
+                    clickSuccess = True
+                    logger.success("已点击提交订单，提交订单成功")
+                else:
+                    pass
         except NoSuchElementException as noe:
             logger.error("点击提交订单异常，提交订单按钮不存在； except: {}", noe)
         except ElementClickInterceptedException as cie:
@@ -772,3 +815,9 @@ class HuaWei:
             tryTimes += 1
 
         logger.info("获取抢购开始时间结束")
+
+    def close_browser(self):
+        self.browser.quit()
+        # 关掉所有线程中窗口
+        for browser in self.thread_browsers:
+            browser.quit()

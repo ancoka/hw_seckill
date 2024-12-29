@@ -730,15 +730,14 @@ class HuaWei:
         clickSuccess = False
         try:
             self.__check_box_ct_pop_stage()
-            self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
-            # if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
-            #     clickSuccess = self.__click_submit_order2(currentUrl)
-            # elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
-            #     if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
-            #         self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
-            #     clickSuccess = self.__click_submit_order2(currentUrl)
-            # else:
-            #     pass
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
+                clickSuccess = self.__click_submit_order2(currentUrl)
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
+                if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
+                    self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
+                clickSuccess = self.__click_submit_order2(currentUrl)
+            else:
+                self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
             boxCtPopIsExists = self.__check_box_ct_pop_stage()
             if boxCtPopIsExists:
                 logger.warning("已点击提交订单，提交订单不成功，重试中...")

@@ -730,15 +730,15 @@ class HuaWei:
         clickSuccess = False
         try:
             self.__check_box_ct_pop_stage()
-            self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
-            # if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
-            #     clickSuccess = self.__click_submit_order2(currentUrl)
-            # elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
-            #     if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
-            #         self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
-            #     clickSuccess = self.__click_submit_order2(currentUrl)
-            # else:
-            #     pass
+            if EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交订单')(self.browser):
+                clickSuccess = self.__click_submit_order2(currentUrl)
+            elif EC.text_to_be_present_in_element((By.CSS_SELECTOR, '#checkoutSubmit'), '提交预约申购单')(self.browser):
+                if not EC.element_located_to_be_selected((By.CSS_SELECTOR, '#agreementChecked'))(self.browser):
+                    self.browser.find_element(By.CSS_SELECTOR, '#agreementChecked').click()
+                clickSuccess = self.__click_submit_order2(currentUrl)
+            else:
+                logger.info("未找到【提交订单】按钮或按钮，尝试使用脚本提交。")
+                self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
             boxCtPopIsExists = self.__check_box_ct_pop_stage()
             if boxCtPopIsExists:
                 logger.warning("已点击提交订单，提交订单不成功，重试中...")
@@ -759,7 +759,11 @@ class HuaWei:
 
     def __click_submit_order2(self, currentUrl):
         clickSuccess = False
-        self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
+        try:
+            self.browser.find_element(By.CSS_SELECTOR, '#checkoutSubmit').click()
+        except (NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
+            logger.info("未找到【提交订单】按钮或按钮不可点击，尝试使用脚本提交； except:{}", e)
+            self.browser.execute_script("if(typeof ec != 'undefined')ec.order.submit();")
         boxCtPopIsExists = self.__check_box_ct_pop_stage()
         if boxCtPopIsExists:
             logger.warning("已点击提交订单，提交订单不成功，重试中...")

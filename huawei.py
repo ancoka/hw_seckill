@@ -438,6 +438,7 @@ class HuaWei:
                                                                                   ".css-1dbjc4n.r-1h0z5md.r-9aemit .css-1dbjc4n.r-18u37iz.r-1w6e6rj .css-1dbjc4n.r-1loqt21.r-1otgn73")))
         for sku_button in sku_buttons:
             if sku_button.text == sku_color or sku_button.text == sku_version:
+                time.sleep(0.002)
                 sku_button.click()
         logger.info("选择手机单品规格完成，颜色：{0} 版本：{1}".format(sku_color, sku_version))
 
@@ -693,14 +694,26 @@ class HuaWei:
                 if orderBtn is not None:
                     orderBtn.click()
 
-                    isOrderPage = False
+                    # 等待新标签页打开并切换到新标签页
                     times = 0
-                    while not isOrderPage:
-                        if times > 1000:
-                            break
-                        isOrderPage = self.__check_is_order_page()
+                    while len(self.browser.window_handles) == 1 and times < 1000:
                         time.sleep(0.01)
                         times += 1
+
+                    if len(self.browser.window_handles) > 1:
+                        # 切换到新打开的标签页
+                        new_tab = self.browser.window_handles[-1]
+                        self.browser.switch_to.window(new_tab)
+
+                        # 检查当前是否是下单页面
+                        isOrderPage = False
+                        times = 0
+                        while not isOrderPage:
+                            if times > 1000:
+                                break
+                            isOrderPage = self.__check_is_order_page()
+                            time.sleep(0.01)
+                            times += 1
 
                     currentUrl = self.browser.current_url
                     if isOrderPage and currentUrl.find(constants.RUSH_ORDER_PAGE_URL):
